@@ -1,0 +1,28 @@
+DoubleValue,CompletedTaskId,AttributeName,StringValue,IntegerValue,ExtraData,Id,
+0.0,2918,surveyAnswer0,0.5,-1,InputField,18140,301
+0.0,2918,surveyAnswer1,55%,-1,InputField,18141,301
+0.0,2919,surveyAnswer0,0.7,-1,InputField,18138,301
+0.0,2919,surveyAnswer1,79%,-1,InputField,18139,301
+0.0,2921,surveyAnswer0,0.6,-1,InputField,18144,301
+0.0,2922,surveyAnswer0,0.8,-1,InputField,18142,301
+0.0,2922,surveyAnswer1,88.88%,-1,InputField,18143,301
+0.0,2923,surveyAnswer1,51,-1,InputField,18146,301
+0.0,2923,surveyAnswer2,49,-1,InputField,18147,301
+0.0,2924,surveyAnswer1,90,-1,InputField,18145,301
+0.0,2926,surveyAnswer0,1,-1,InputField,18148,301
+0.0,2926,surveyAnswer1,100%,-1,InputField,18149,301
+0.0,2928,surveyAnswer1,100,-1,InputField,18152,301
+0.0,2928,surveyAnswer2,0,-1,InputField,18153,301
+0.0,2929,surveyAnswer1,1,-1,InputField,18150,301
+0.0,2929,surveyAnswer2,99,-1,InputField,18151,301
+0.0,2931,surveyAnswer0,0.8,-1,InputField,18156,301
+0.0,2931,surveyAnswer1,100%,-1,InputField,18157,301
+0.0,2932,surveyAnswer0,0.85,-1,InputField,18154,301
+0.0,2932,surveyAnswer1,90%,-1,InputField,18155,301
+0.0,2935,surveyAnswer0,In file: CompletedTaskAttribute_18155,-1,RadioField,18158,301
+0.0,2935,surveyAnswer1,5,-1,InputField,18161,301
+0.0,2936,surveyAnswer0,In file: CompletedTaskAttribute_18161,-1,RadioField,18159,301
+0.0,2936,surveyAnswer1,0,-1,InputField,18160,301
+0.0,2937,surveyAnswer0,0.1111,-1,InputField,18163,301
+0.0,2937,surveyAnswer1,10,-1,InputField,18164,301
+0.0,2938,surveyAnswer1,50%,-1,InputField,18162,301
