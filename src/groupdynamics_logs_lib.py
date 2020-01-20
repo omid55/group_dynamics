@@ -15,8 +15,8 @@ import numpy as np
 import pandas as pd
 from os.path import expanduser
 from typing import Dict
-from typing import List
 from typing import Text
+from typing import Tuple
 
 
 class TeamLogsLoader(object):
@@ -193,7 +193,7 @@ class TeamLogsLoader(object):
         questions = np.unique(self.answers.question)
         data = []
         for question in questions:
-            dt = [question]
+            dt = [question[len('GD_solo_'):]]
             for user in users:
                 for input in ['answer', 'confidence']:
                     this_answer = self.answers[
@@ -212,7 +212,7 @@ class TeamLogsLoader(object):
             columns += [user + '\'s answer', user + '\'s confidence']
         return pd.DataFrame(data, columns=columns)
 
-    def get_influence_matrices(self) -> np.ndarray:
+    def get_influence_matrices(self) -> Tuple[np.ndarray, np.ndarray]:
         """Gets influence matrices in 2 * 2 format."""
         influence_matrices = []
         users = np.unique(self.influences.sender)
@@ -236,7 +236,9 @@ class TeamLogsLoader(object):
             influences[3] = tmp
             influence_matrices.append(
                 np.reshape(influences, (2, 2)))
-        return np.array(influence_matrices)
+        question_names = [
+            question[len('GD_influence_'):] for question in questions]
+        return question_names, np.array(influence_matrices)
 
     def get_combined_messages(self) -> pd.DataFrame:
         pass

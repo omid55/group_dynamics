@@ -73,7 +73,7 @@ class TestTeamLogsLoaderLoad(unittest.TestCase):
     # =========================================================================
     def test_get_answers_in_simple_format(self):
         expected = pd.DataFrame({
-            "Question":{0:"GD_solo_sports0",1:"GD_solo_surgery0",2:"GD_solo_surgery1",3:"GD_solo_surgery2",4:"GD_solo_surgery3"},
+            "Question":{0:"sports0",1:"surgery0",2:"surgery1",3:"surgery2",4:"surgery3"},
             "pogs10.1's answer":{0:"",1:"0.7",2:"0.8",3:"",4:"0.85"},
             "pogs10.1's confidence":{0:"50%",1:"79%",2:"88.88%",3:"",4:"90%"},
             "pogs10.2's answer":{0:"0.1111",1:"0.5",2:"0.6",3:"1",4:"0.8"},
@@ -85,7 +85,13 @@ class TestTeamLogsLoaderLoad(unittest.TestCase):
     # ======================= get_influence_matrices ==========================
     # =========================================================================
     def test_get_influence_matrices(self):
-        expected = [np.array(
+        expected_question_orders = [
+            'surgery1', 'surgery2']
+        expected_influence_matrices = [np.array(
             [['90', ''], ['49', '51']]), np.array([['1', '99'], ['0', '100']])]
-        computed = self.loader.get_influence_matrices()
-        np_testing.assert_array_equal(expected, computed)
+        computed_questions_order, computed_influence_matrices = (
+            self.loader.get_influence_matrices())
+        np_testing.assert_array_equal(
+            expected_question_orders, computed_questions_order)
+        np_testing.assert_array_equal(
+            expected_influence_matrices, computed_influence_matrices)
