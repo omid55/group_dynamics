@@ -186,7 +186,8 @@ class TeamLogsLoader(object):
         self.messages.sort_values(by='timestamp', inplace=True)
 
     def get_answers_in_simple_format(self) -> pd.DataFrame:
-        """Gets all answers in a simple format to read them in easiest way."""
+        """Gets all answers in a simple format to read them in the easiest way.
+        """
         # if len(self.answers) == 0:
         #     raise ValueError('The object has not been initialized.')
         users = np.unique(self.answers.sender)
@@ -239,6 +240,34 @@ class TeamLogsLoader(object):
         question_names = [
             question[len('GD_influence_'):] for question in questions]
         return question_names, np.array(influence_matrices)
+
+    def get_frustrations_in_simple_format(self):
+        """Gets all frustrations in a simple format to be read."""
+        users = np.unique(self.frustrations.sender)
+        questions = np.unique(self.frustrations.question)
+        data = []
+        for question in questions:
+            dt = [question[len('GD_frustration_'):]]
+            for user in users:
+                this_frustration = self.frustrations[(
+                    self.frustrations.question == question) & (
+                        self.frustrations.sender == user)]
+                val = ''
+                if len(this_frustration.value) > 0:
+                    # Because if there might be multiple log entry for the
+                    #  same text box, we take the last one.
+                    vals = []
+                    for v in list(this_frustration.value):
+                        if v[0] != '[':
+                            vals.append(v)
+                    if len(vals) > 0:
+                        val = vals[-1]
+                dt.append(val)
+            data.append(dt)
+        columns = ['Question']
+        for user in users:
+            columns += [user + '\'s answer']
+        return pd.DataFrame(data, columns=columns)
 
     def get_combined_messages(self) -> pd.DataFrame:
         pass

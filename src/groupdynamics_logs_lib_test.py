@@ -95,3 +95,14 @@ class TestTeamLogsLoaderLoad(unittest.TestCase):
             expected_question_orders, computed_questions_order)
         np_testing.assert_array_equal(
             expected_influence_matrices, computed_influence_matrices)
+
+    # =========================================================================
+    # ============== get_frustrations_in_simple_format ========================
+    # =========================================================================
+    def test_get_frustrations_in_simple_format(self):
+        expected = pd.DataFrame({
+            "Question":{0: "surgery"},
+            "pogs10.1's answer":{0: "0"},
+            "pogs10.2's answer":{0: "5"}})
+        computed = self.loader.get_frustrations_in_simple_format()
+        pd_testing.assert_frame_equal(expected, computed)
