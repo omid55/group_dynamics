@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 from pandas import testing as pd_testing
 from numpy import testing as np_testing
+from parameterized import parameterized
 import groupdynamics_logs_lib
 
 
@@ -82,19 +83,85 @@ class TestTeamLogsLoaderLoad(unittest.TestCase):
         pd_testing.assert_frame_equal(expected, computed)
 
     # =========================================================================
-    # ======================= get_influence_matrices ==========================
+    # ===================== get_influence_matrices2x2 ==========================
     # =========================================================================
-    def test_get_influence_matrices(self):
-        expected_question_orders = [
-            'surgery1', 'surgery2']
-        expected_influence_matrices = [np.array(
-            [['90', ''], ['49', '51']]), np.array([['1', '99'], ['0', '100']])]
-        computed_questions_order, computed_influence_matrices = (
-            self.loader.get_influence_matrices())
+    def test_get_influence_matrices2x2(self):
+        expected_question_orders = ['surgery1', 'surgery2']
+        expected_influence_matrices = [
+            np.array([[0.9, 0.1],
+                      [0.49, 0.51]]),
+            np.array([[0.01, 0.99],
+                      [0.0, 1.0]])]
+        expected_influences_from_data = [
+            np.array([[True, False], [True, True]]),
+            np.array([[True, True], [True, True]])
+        ]
+        computed_questions_order, computed_influence_matrices, computed_influences_from_data = (
+            self.loader.get_influence_matrices2x2(make_it_row_stochastic=True))
         np_testing.assert_array_equal(
             expected_question_orders, computed_questions_order)
         np_testing.assert_array_equal(
-            expected_influence_matrices, computed_influence_matrices)
+            expected_influence_matrices,
+            computed_influence_matrices)
+        np_testing.assert_array_equal(
+            expected_influences_from_data,
+            computed_influences_from_data)
+
+    @parameterized.expand([
+        ['with_one_missing',
+            pd.DataFrame({
+                "sender":{"0":"pogs10.1","1":"pogs10.2","2":"pogs10.2"},
+                "question":{"0":"GD_influence_surgery1","1":"GD_influence_surgery1","2":"GD_influence_surgery1"},
+                "input":{"0":"self","1":"self","2":"other"},"value":{"0":"90","1":"51","2":"49"},
+                "timestamp":{"0":"2020-01-16 14:15:11","1":"2020-01-16 14:15:20","2":"2020-01-16 14:15:22"}}),
+        [np.array([[0.9, 0.1],
+                   [0.49, 0.51]])],
+        ],
+        ['with_one_missing_and_one_empty',
+            pd.DataFrame({
+                "sender":{"0":"pogs10.1","1":"pogs10.2","2":"pogs10.2"},
+                "question":{"0":"GD_influence_surgery1","1":"GD_influence_surgery1","2":"GD_influence_surgery1"},
+                "input":{"0":"self","1":"self","2":"other"},"value":{"0":"","1":"51","2":"49"},
+                "timestamp":{"0":"2020-01-16 14:15:11","1":"2020-01-16 14:15:20","2":"2020-01-16 14:15:22"}}),
+        [np.array([[0.5, 0.5],
+                   [0.49, 0.51]])],
+        ],
+        ['with_only_one',
+            pd.DataFrame({
+                "sender":{"0":"pogs10.1"},
+                "question":{"0":"GD_influence_surgery1"},
+                "input":{"0":"self"},"value":{"0":"51",},
+                "timestamp":{"0":"2020-01-16 14:15:11"}}),
+        [np.array([[0.51, 0.49],
+                   [0.50, 0.50]])],
+        ],
+        ['with_larger_values',
+            pd.DataFrame({
+                "sender":{"0":"pogs10.1","1":"pogs10.2","2":"pogs10.2"},
+                "question":{"0":"GD_influence_surgery1","1":"GD_influence_surgery1","2":"GD_influence_surgery1"},
+                "input":{"0":"self","1":"self","2":"other"},"value":{"0":"","1":"60","2":"90"},
+                "timestamp":{"0":"2020-01-16 14:15:11","1":"2020-01-16 14:15:20","2":"2020-01-16 14:15:22"}}),
+        [np.array([[0.5, 0.5],
+                   [0.6, 0.4]])],
+        ],
+        ['with_duplicate_due_to_change_of_value',
+            pd.DataFrame({
+                "sender":{"0":"pogs10.1","0":"pogs10.1","1":"pogs10.2","2":"pogs10.2"},
+                "question":{"0":"GD_influence_surgery1","0":"GD_influence_surgery1","1":"GD_influence_surgery1","2":"GD_influence_surgery1"},
+                "input":{"0":"self","0":"self","1":"self","2":"other"},
+                "value":{"0":"55","0":"5","1":"51","2":"49"},
+                "timestamp":{"0":"2020-01-16 14:15:11","0":"2020-01-16 14:15:12","1":"2020-01-16 14:15:20","2":"2020-01-16 14:15:22"}}),
+        [np.array([[0.05, 0.95],
+                   [0.49, 0.51]])],
+        ]])
+    def test_get_influence_matrices2x2_mocked(self, name, influences, expected_influence_matrices):
+        self.loader.influences = influences
+        _, computed_influence_matrices, _ = (
+            self.loader.get_influence_matrices2x2(make_it_row_stochastic=True))
+        np_testing.assert_array_equal(
+            expected_influence_matrices,
+            computed_influence_matrices)
+
 
     # =========================================================================
     # ============== get_frustrations_in_simple_format ========================
@@ -105,4 +172,31 @@ class TestTeamLogsLoaderLoad(unittest.TestCase):
             "pogs10.1's answer":{0: "0"},
             "pogs10.2's answer":{0: "5"}})
         computed = self.loader.get_frustrations_in_simple_format()
+        pd_testing.assert_frame_equal(expected, computed)
+
+
+    # =========================================================================
+    # =============== get_all_groups_info_in_one_dataframe ====================
+    # =========================================================================
+    def test_get_all_groups_info_in_one_dataframe(self):
+        teams_log_list = [self.loader]
+        dt = [
+            ['s10', '1', 'asbestos', '', '', '', '', '', '', '', '', '', ''],
+            ['s10', '1', 'disaster', '', '', '', '', '', '', '', '', '', ''],
+            ['s10', '1', 'sports', '', '', '', '', '', '', '', '', '', ''],
+            ['s10', '1', 'school', '', '', '', '', '', '', '', '', '', ''],
+            ['s10', '1', 'surgery', '0.7', '0.8', '0.9', '0.1', '', '0.01', '0.99', '0.85', '', ''],
+            ['s10', '2', 'asbestos', '', '', '', '', '', '', '', '', '', ''],
+            ['s10', '2', 'disaster', '', '', '', '', '', '', '', '', '', ''],
+            ['s10', '2', 'sports', '0.1111', '', '', '', '', '', '', '', '', ''],
+            ['s10', '2', 'school', '', '', '', '', '', '', '', '', '', ''],
+            ['s10', '2', 'surgery', '0.5', '0.6', '0.51', '0.49', '1', '1.0', '0.0', '0.8', '', ''],
+            ]
+        expected = pd.DataFrame(dt, columns = [
+            'Group', 'Person', 'Issue', 'Initial opinion',
+            'Period1 opinion', 'Period1 wii', 'Period1 wij',
+            'Period2 opinion', 'Period2 wii', 'Period2 wij',
+            'Period3 opinion', 'Period3 wii', 'Period3 wij'])
+        computed = groupdynamics_logs_lib.get_all_groups_info_in_one_dataframe(
+            teams_log_list)
         pd_testing.assert_frame_equal(expected, computed)

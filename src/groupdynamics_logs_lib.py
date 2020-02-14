@@ -1,7 +1,7 @@
 ###############################################################################
 # Omid55
 # Start date:     16 Jan 2020
-# Modified date:  16 Jan 2020
+# Modified date:  13 Feb 2020
 # Author:   Omid Askarisichani
 # Email:    omid55@cs.ucsb.edu
 # Module to load group dynamics logs for every team.
@@ -15,8 +15,11 @@ import numpy as np
 import pandas as pd
 from os.path import expanduser
 from typing import Dict
+from typing import List
 from typing import Text
 from typing import Tuple
+
+import utils
 
 
 class TeamLogsLoader(object):
@@ -184,13 +187,15 @@ class TeamLogsLoader(object):
         self.influences.sort_values(by='timestamp', inplace=True)
         self.frustrations.sort_values(by='timestamp', inplace=True)
         self.messages.sort_values(by='timestamp', inplace=True)
+        self.users = np.unique(self.answers.sender)
+        self.team_id = self.users[0].split('.')[0]
 
     def get_answers_in_simple_format(self) -> pd.DataFrame:
         """Gets all answers in a simple format to read them in the easiest way.
         """
         # if len(self.answers) == 0:
         #     raise ValueError('The object has not been initialized.')
-        users = np.unique(self.answers.sender)
+        users = self.users
         questions = np.unique(self.answers.question)
         data = []
         for question in questions:
@@ -213,10 +218,18 @@ class TeamLogsLoader(object):
             columns += [user + '\'s answer', user + '\'s confidence']
         return pd.DataFrame(data, columns=columns)
 
-    def get_influence_matrices(self) -> Tuple[np.ndarray, np.ndarray]:
-        """Gets influence matrices in 2 * 2 format."""
+    def get_influence_matrices2x2(
+            self,
+            make_it_row_stochastic: bool = True
+            ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Gets influence matrices in 2 * 2 format.
+        
+        If empty or missing string, it fills with 100 - other one. If both
+        empty or missing it fills both with 50.
+        """
         influence_matrices = []
-        users = np.unique(self.influences.sender)
+        influences_from_data = []
+        users = self.users
         questions = np.unique(self.influences.question)
         for question in questions:
             influences = []
@@ -231,19 +244,35 @@ class TeamLogsLoader(object):
                         # Because if there might be multiple log entry for the
                         #  same text box, we take the last one.
                         val = list(this_influence.value)[-1]
+                    val = str(val).split('%')[0]
                     influences.append(val)
             tmp = influences[2]
             influences[2] = influences[3]
             influences[3] = tmp
-            influence_matrices.append(
-                np.reshape(influences, (2, 2)))
+            influences = np.reshape(influences, (2, 2))
+            empty_strings = np.where(influences == '')
+            influence_from_data = np.ones((2, 2), dtype=np.bool)
+            for l in range(len(empty_strings[0])):
+                i = empty_strings[0][l]
+                j = empty_strings[1][l]
+                if influences[i, 1-j] == '':
+                    influences[i, 1-j] = 50
+                    influence_from_data[i, 1-j] = False
+                influences[i, j] = 100 - float(influences[i, 1-j])
+                influence_from_data[i, j] = False
+            influences = np.array(influences, dtype=np.float)
+            if make_it_row_stochastic:
+                influences = utils.make_matrix_row_stochastic(influences)
+            influence_matrices.append(influences)
+            influences_from_data.append(influence_from_data)
         question_names = [
             question[len('GD_influence_'):] for question in questions]
-        return question_names, np.array(influence_matrices)
+        return question_names, np.array(influence_matrices), np.array(
+            influences_from_data)
 
     def get_frustrations_in_simple_format(self):
         """Gets all frustrations in a simple format to be read."""
-        users = np.unique(self.frustrations.sender)
+        users = self.users
         questions = np.unique(self.frustrations.question)
         data = []
         for question in questions:
@@ -271,3 +300,48 @@ class TeamLogsLoader(object):
 
     def get_combined_messages(self) -> pd.DataFrame:
         pass
+
+
+def get_all_groups_info_in_one_dataframe(
+        teams_log: List[TeamLogsLoader]) -> pd.DataFrame:
+    """Gets all teams' logs in one dataframe.
+    """
+    dt = []
+    issues = ['asbestos', 'disaster', 'sports', 'school', 'surgery']
+    for team_log in teams_log:
+        answers = team_log.get_answers_in_simple_format()
+        q_order, inf_matrices , from_data = team_log.get_influence_matrices2x2(
+            make_it_row_stochastic=True)
+        for index, user in enumerate(team_log.users):
+            user_ans = answers[['Question', user + '\'s answer']]
+            # user_conf = answers[['Question', user + '\'s confidence']]
+            for issue in issues:
+                vals = []
+                for i in range(4):
+                    op = user_ans[user_ans['Question'] == issue + str(i)]
+                    # co = user_ans[user_conf['Question'] == issue + str(i)]
+
+                    op_v = ''
+                    if len(op.values) > 0:
+                        op_v = op.values[0][1]
+                    vals.append(op_v)
+
+                    if i > 0:
+                        wii = ''
+                        wij = ''
+                        v = np.where(np.array(q_order) == issue + str(i))[0]
+                        if len(v) > 0:
+                            if from_data[v[0]][index, index] or from_data[v[0]][index, 1 - index]:
+                                wii = round(inf_matrices[v[0]][index, index], 2)
+                                wij = round(inf_matrices[v[0]][index, 1 - index], 2)
+                                wii = str(wii)
+                                wij = str(wij)
+                        vals.extend([wii, wij])
+                dt.append(
+                    [team_log.team_id[3:], user.split('.')[1], issue] + vals)
+    data = pd.DataFrame(dt, columns = [
+        'Group', 'Person', 'Issue', 'Initial opinion',
+        'Period1 opinion', 'Period1 wii', 'Period1 wij',
+        'Period2 opinion', 'Period2 wii', 'Period2 wij',
+        'Period3 opinion', 'Period3 wii', 'Period3 wij'])
+    return data
