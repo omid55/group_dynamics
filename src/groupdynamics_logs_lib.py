@@ -15,7 +15,6 @@ import numpy as np
 import pandas as pd
 from os.path import expanduser
 from typing import Dict
-from typing import List
 from typing import Text
 from typing import Tuple
 
@@ -23,6 +22,16 @@ import utils
 
 
 class TeamLogsLoader(object):
+    """Processes the logs of one team who have finished the dyad group dynamics
+
+        Usage:
+            loader = TeamLogsLoader(
+                directory='/home/omid/Datasets/Jeopardy')
+
+        Properties:
+            team_id: The id of the existing team in this object.
+
+    """
     taskid2taskname = {
         52: 'GD_solo_asbestos_initial',
         53: 'GD_group_asbestos1',
@@ -187,8 +196,12 @@ class TeamLogsLoader(object):
         self.influences.sort_values(by='timestamp', inplace=True)
         self.frustrations.sort_values(by='timestamp', inplace=True)
         self.messages.sort_values(by='timestamp', inplace=True)
-        self.users = np.unique(self.answers.sender)
-        self.team_id = self.users[0].split('.')[0]
+        self.users = np.unique(
+            self.influences.sender.tolist() +
+            self.messages.sender.tolist() +
+            self.answers.sender.tolist())
+        if self.users.size > 0:
+            self.team_id = self.users[0].split('.')[0]
 
     def get_answers_in_simple_format(self) -> pd.DataFrame:
         """Gets all answers in a simple format to read them in the easiest way.
@@ -303,12 +316,12 @@ class TeamLogsLoader(object):
 
 
 def get_all_groups_info_in_one_dataframe(
-        teams_log: List[TeamLogsLoader]) -> pd.DataFrame:
+        teams_log: Dict[Text, TeamLogsLoader]) -> pd.DataFrame:
     """Gets all teams' logs in one dataframe.
     """
     dt = []
     issues = ['asbestos', 'disaster', 'sports', 'school', 'surgery']
-    for team_log in teams_log:
+    for team_log in teams_log.values():
         answers = team_log.get_answers_in_simple_format()
         q_order, inf_matrices , from_data = team_log.get_influence_matrices2x2(
             make_it_row_stochastic=True)
@@ -324,6 +337,30 @@ def get_all_groups_info_in_one_dataframe(
                     op_v = ''
                     if len(op.values) > 0:
                         op_v = op.values[0][1]
+                    if issue == 'asbestos' or issue == 'disaster':
+                        if len(op_v) > 0:
+                            op_v = op_v.replace('$', '')
+                            op_v = op_v.replace('dollars', '')
+                            op_v = op_v.replace('per person', '')
+                            op_v = op_v.replace(',', '')
+                            op_v = op_v.replace('.000', '000')
+                            op_v = op_v.replace(' million', '000000')
+                            op_v = op_v.replace(' mil', '000000')
+                            op_v = op_v.replace(' M', '000000')
+                            op_v = op_v.replace('M', '000000')
+                            op_v = op_v.replace(' k', '000')
+                            op_v = op_v.replace('k', '000')
+                            op_v = op_v.replace(' K', '000')
+                            op_v = op_v.replace('K', '000')
+                            op_v = '$' + op_v
+                    else:
+                        if len(op_v) > 0:
+                            op_v = op_v.replace('%', '')
+                            if op_v.isdigit() and float(op_v) > 2:
+                                op_v = str(float(op_v) / 100)
+                            if '/' in op_v:
+                                nums = op_v.split('/')
+                                op_v = str(int(nums[0]) / int(nums[1]))
                     vals.append(op_v)
 
                     if i > 0:

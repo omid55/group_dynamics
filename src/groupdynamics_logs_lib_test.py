@@ -18,11 +18,14 @@ class TestTeamLogsLoaderLoad(unittest.TestCase):
     @classmethod
     def setUp(cls):
         cls.loader = groupdynamics_logs_lib.TeamLogsLoader(
-            directory=os.getcwd() + '/src/testing_log')
+            directory=os.getcwd() + '/src/testing_log/with_confidence')
+        cls.loader_no_confidence = groupdynamics_logs_lib.TeamLogsLoader(
+            directory=os.getcwd() + '/src/testing_log/without_confidence')
 
     @classmethod
     def tearDown(cls):
         del cls.loader
+        del cls.loader_no_confidence
 
     # =========================================================================
     # ================================ _load ==================================
@@ -68,6 +71,41 @@ class TestTeamLogsLoaderLoad(unittest.TestCase):
             columns=['sender', 'question', 'text', 'timestamp'])
         pd_testing.assert_frame_equal(
             expected_messages, self.loader.messages)
+
+    def test_load_answers_are_correct_in_log_with_no_confidence(self):
+        expected_answers = pd.DataFrame([
+            {"sender":"subj1","question":"GD_solo_disaster0","input":"answer","value":"50","timestamp":"2020-03-04 18:38:42"},
+            {"sender":"subj2","question":"GD_solo_disaster0","input":"answer","value":"200","timestamp":"2020-03-04 18:38:51"},
+            {"sender":"subj1","question":"GD_solo_disaster1","input":"answer","value":"55","timestamp":"2020-03-04 18:42:58"},
+            {"sender":"subj2","question":"GD_solo_disaster1","input":"answer","value":"1000 mil","timestamp":"2020-03-04 18:43:02"},
+            {"sender":"subj1","question":"GD_solo_disaster2","input":"answer","value":"100","timestamp":"2020-03-04 18:47:08"},
+            {"sender":"subj2","question":"GD_solo_disaster2","input":"answer","value":"$88","timestamp":"2020-03-04 18:47:18"}],
+            columns=['sender', 'question', 'input', 'value', 'timestamp'])
+        pd_testing.assert_frame_equal(
+            expected_answers, self.loader_no_confidence.answers)
+
+    def test_load_influences_are_correct_in_log_with_no_confidence(self):
+        expected_influences = pd.DataFrame([
+            {"sender":"subj1","question":"GD_influence_disaster1","input":"self","value":"100","timestamp":"2020-03-04 18:43:47"},
+            {"sender":"subj2","question":"GD_influence_disaster1","input":"self","value":"99","timestamp":"2020-03-04 18:43:54"},
+            {"sender":"subj2","question":"GD_influence_disaster1","input":"other","value":"1","timestamp":"2020-03-04 18:43:57"},
+            {"sender":"subj2","question":"GD_influence_disaster2","input":"self","value":"50","timestamp":"2020-03-04 18:47:43"},
+            {"sender":"subj2","question":"GD_influence_disaster2","input":"other","value":"55","timestamp":"2020-03-04 18:47:45"},
+            {"sender":"subj2","question":"GD_influence_disaster2","input":"self","value":"45","timestamp":"2020-03-04 18:47:46"}],
+            columns=['sender', 'question', 'input', 'value', 'timestamp'])
+        pd_testing.assert_frame_equal(
+            expected_influences, self.loader_no_confidence.influences)
+
+    
+    def test_load_messages_are_correct_in_log_with_no_confidence(self):
+        expected_messages = pd.DataFrame([
+            {"sender":"subj1","question":"GD_group_disaster1","text":"hello","timestamp":"2020-03-04 18:40:50"},
+            {"sender":"subj2","question":"GD_group_disaster1","text":"hi there","timestamp":"2020-03-04 18:40:54"},
+            {"sender":"subj2","question":"GD_group_disaster1","text":"sup???","timestamp":"2020-03-04 18:41:58"},
+            {"sender":"subj1","question":"GD_group_disaster2","text":"cooooooooool","timestamp":"2020-03-04 18:45:26"}],
+            columns=['sender', 'question', 'text', 'timestamp'])
+        pd_testing.assert_frame_equal(
+            expected_messages, self.loader_no_confidence.messages)
 
     # =========================================================================
     # =================== get_answers_in_simple_format ========================
@@ -130,9 +168,9 @@ class TestTeamLogsLoaderLoad(unittest.TestCase):
             pd.DataFrame({
                 "sender":{"0":"pogs10.1"},
                 "question":{"0":"GD_influence_surgery1"},
-                "input":{"0":"self"},"value":{"0":"51",},
+                "input":{"0":"self"},"value":{"0":"50",},
                 "timestamp":{"0":"2020-01-16 14:15:11"}}),
-        [np.array([[0.51, 0.49],
+        [np.array([[0.50, 0.50],
                    [0.50, 0.50]])],
         ],
         ['with_larger_values',
@@ -179,7 +217,7 @@ class TestTeamLogsLoaderLoad(unittest.TestCase):
     # =============== get_all_groups_info_in_one_dataframe ====================
     # =========================================================================
     def test_get_all_groups_info_in_one_dataframe(self):
-        teams_log_list = [self.loader]
+        teams_log_list = {'s10': self.loader}
         dt = [
             ['s10', '1', 'asbestos', '', '', '', '', '', '', '', '', '', ''],
             ['s10', '1', 'disaster', '', '', '', '', '', '', '', '', '', ''],
@@ -190,8 +228,7 @@ class TestTeamLogsLoaderLoad(unittest.TestCase):
             ['s10', '2', 'disaster', '', '', '', '', '', '', '', '', '', ''],
             ['s10', '2', 'sports', '0.1111', '', '', '', '', '', '', '', '', ''],
             ['s10', '2', 'school', '', '', '', '', '', '', '', '', '', ''],
-            ['s10', '2', 'surgery', '0.5', '0.6', '0.51', '0.49', '1', '1.0', '0.0', '0.8', '', ''],
-            ]
+            ['s10', '2', 'surgery', '0.5', '0.6', '0.51', '0.49', '1', '1.0', '0.0', '0.8', '', '']]
         expected = pd.DataFrame(dt, columns = [
             'Group', 'Person', 'Issue', 'Initial opinion',
             'Period1 opinion', 'Period1 wii', 'Period1 wij',

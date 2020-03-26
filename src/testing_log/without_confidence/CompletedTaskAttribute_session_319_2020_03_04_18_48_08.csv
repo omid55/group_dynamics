@@ -1,0 +1,12 @@
+ExtraData,CompletedTaskId,StringValue,IntegerValue,DoubleValue,AttributeName,Id,
+InputField,8090,200,-1,0.0,surveyAnswer0,40003,319
+InputField,8091,50,-1,0.0,surveyAnswer0,40002,319
+InputField,8093,1000 mil,-1,0.0,surveyAnswer0,40005,319
+InputField,8094,55,-1,0.0,surveyAnswer0,40004,319
+InputField,8095,99,-1,0.0,surveyAnswer1,40007,319
+InputField,8095,1,-1,0.0,surveyAnswer2,40008,319
+InputField,8096,100,-1,0.0,surveyAnswer1,40006,319
+InputField,8098,$88,-1,0.0,surveyAnswer0,40010,319
+InputField,8099,100,-1,0.0,surveyAnswer0,40009,319
+InputField,8100,45,-1,0.0,surveyAnswer1,40011,319
+InputField,8100,55,-1,0.0,surveyAnswer2,40012,319
