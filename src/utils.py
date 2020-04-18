@@ -119,7 +119,7 @@ def assert_graph_equals(
         weight_column_name: The name of weight column.
 
     Returns:
-        Boolean whether g1 equals g2 or not.
+        None.
 
     Raises:
         AssertionError: If the two graphs are not equal. It also prints a
@@ -941,3 +941,56 @@ def get_stationary_distribution(
     stationary_distribution = [item.real for item in eigen_vectors[:, index]]
     stationary_distribution /= np.sum(stationary_distribution)
     return stationary_distribution
+
+
+# @enforce.runtime_validation
+def assert_dict_equals(
+        d1: Dict,
+        d2: Dict,
+        almost_number_of_decimals: int = -1) -> None:
+    """Checks if two nested dictionary are (almost) equal.
+
+    If almost_number_of_decimals larger than 0, then it checks for that many
+    decimal points. Otherwise, it checks for exact match.
+
+    Args:
+        d1: First dictionary to be compared.
+
+        d2: Second dictionary to be compared.
+
+        almost_number_of_decimals: The number of decimal points to almost check.
+
+    Returns:
+        None.
+
+    Raises:
+        AssertionError: If the two graphs are not equal. It also prints a
+        message why they do not match for easier debugging purposes.
+    """
+    if set(d1.keys()) != set(d2.keys()):
+        raise AssertionError(
+            'Two dictionaries have different keys: {} != {}'.format(
+                d1.keys(), d2.keys()))
+    for key in d1.keys():
+        v1 = d1[key]
+        v2 = d2[key]
+        if type(v1) != type(v2):
+            raise AssertionError(
+                'Two dictionaries have different types of'
+                ' values {}\'s type: {} != {}'.format(
+                    key, type(v1), type(v2)))
+        if isinstance(v1, list) or isinstance(v1, np.ndarray):
+            if almost_number_of_decimals > 0:
+                np.testing.assert_array_almost_equal(
+                    v1, v2, decimal=almost_number_of_decimals)
+            else:
+                np.testing.assert_array_equal(v1, v2)
+        elif isinstance(v1, dict):
+            assert_dict_equals(
+                d1=v1,
+                d2=v2,
+                almost_number_of_decimals=almost_number_of_decimals)
+        elif v1 != v2:
+            raise AssertionError(
+                'Two dictionaries have different values: {} != {}'.format(
+                    v1, v2))

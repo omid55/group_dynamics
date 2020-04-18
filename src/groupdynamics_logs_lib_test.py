@@ -11,15 +11,16 @@ import pandas as pd
 from pandas import testing as pd_testing
 from numpy import testing as np_testing
 from parameterized import parameterized
-import groupdynamics_logs_lib
+import groupdynamics_logs_lib as gll
+import utils
 
 
 class TestTeamLogsLoaderLoad(unittest.TestCase):
     @classmethod
     def setUp(cls):
-        cls.loader = groupdynamics_logs_lib.TeamLogsLoader(
+        cls.loader = gll.TeamLogsLoader(
             directory=os.getcwd() + '/src/testing_log/with_confidence')
-        cls.loader_no_confidence = groupdynamics_logs_lib.TeamLogsLoader(
+        cls.loader_no_confidence = gll.TeamLogsLoader(
             directory=os.getcwd() + '/src/testing_log/without_confidence')
 
     @classmethod
@@ -200,7 +201,6 @@ class TestTeamLogsLoaderLoad(unittest.TestCase):
             expected_influence_matrices,
             computed_influence_matrices)
 
-
     # =========================================================================
     # ============== get_frustrations_in_simple_format ========================
     # =========================================================================
@@ -211,7 +211,6 @@ class TestTeamLogsLoaderLoad(unittest.TestCase):
             "pogs10.2's answer":{0: "5"}})
         computed = self.loader.get_frustrations_in_simple_format()
         pd_testing.assert_frame_equal(expected, computed)
-
 
     # =========================================================================
     # =============== get_all_groups_info_in_one_dataframe ====================
@@ -234,6 +233,89 @@ class TestTeamLogsLoaderLoad(unittest.TestCase):
             'Period1 opinion', 'Period1 wii', 'Period1 wij',
             'Period2 opinion', 'Period2 wii', 'Period2 wij',
             'Period3 opinion', 'Period3 wii', 'Period3 wij'])
-        computed = groupdynamics_logs_lib.get_all_groups_info_in_one_dataframe(
+        computed = gll.get_all_groups_info_in_one_dataframe(
             teams_log_list)
         pd_testing.assert_frame_equal(expected, computed)
+
+    # =========================================================================
+    # ============== compute_attachment_to_initial_opinion ====================
+    # =========================================================================
+    def test_compute_attachment_raises_when_not_matching_opinions(self):
+        x1 = [0.1, 0.2, 0.6, 0.4]
+        x2 = [0.9, 0.4, 0.7]
+        w12 = [0.1, 0.0, 0.2]
+        with self.assertRaises(ValueError):
+            gll.compute_attachment_to_initial_opinion(x1, x2, w12)
+
+    def test_compute_attachment_raises_when_not_matching_opinions_influence(
+            self):
+        x1 = [0.1, 0.2, 0.6, 0.4]
+        x2 = [0.9, 0.4, 0.7, 0.5]
+        w12 = [0.1, 0.0]
+        with self.assertRaises(ValueError):
+            gll.compute_attachment_to_initial_opinion(x1, x2, w12)
+
+    def test_compute_attachment_to_initial_opinion(self):
+        x1 = [0.1, 0.2, 0.6, 0.4]
+        x2 = [0.9, 0.4, 0.7, 0.5]
+        w12 = [0.1, 0.0, 0.2]
+        expected_a11 = [0.1/0.08, 0.5/0.1, 0.3/0.52]
+        computed_a11 = gll.compute_attachment_to_initial_opinion(
+            xi=x1, xj=x2, wij=w12, eps=0)
+        np_testing.assert_array_almost_equal(expected_a11, computed_a11)
+
+    def test_compute_attachment_to_initial_opinion_when_division_by_zero(self):
+        x1 = [0.2, 0.2, 0.2]
+        x2 = [0.4, 0.4, 0.4]
+        w12 = [0.1, 0.0]
+        expected_a11 = [0 / 0.02,
+                        np.nan]
+        computed_a11 = gll.compute_attachment_to_initial_opinion(
+            xi=x1, xj=x2, wij=w12, eps=0)
+        np_testing.assert_array_almost_equal(expected_a11, computed_a11)
+
+    def test_compute_attachment_to_initial_when_division_by_zero_with_eps(self):
+        x1 = [0.2, 0.2, 0.2]
+        x2 = [0.4, 0.4, 0.4]
+        w12 = [0.1, 0.0]
+        eps = 0.01
+        expected_a11 = [(0 + eps) / (0.02 + eps),
+                        (0 + eps) / (0 + eps)]
+        computed_a11 = gll.compute_attachment_to_initial_opinion(
+            xi=x1, xj=x2, wij=w12, eps=eps)
+        np_testing.assert_array_almost_equal(expected_a11, computed_a11)
+
+    # =========================================================================
+    # ================== compute_all_teams_attachments ========================
+    # =========================================================================
+    def test_compute_all_teams_attachments(self):
+        teams_data = {
+            55: {
+                'asbestos': {
+                    'w12': [0.1, 0.0, 0.2],
+                    'w21': [0.0, 0.0, 0.0],
+                    'x1': [0.1, 0.2, 0.6, 0.4],
+                    'x2': [0.9, 0.4, 0.7, 0.5]},
+                'surgery': {
+                    'w12': [0.35, 0.4, 0.5],
+                    'w21': [0.25, 0.3, 0.3],
+                    'x1': [0.6, 0.65, 0.7, 0.7],
+                    'x2': [0.75, 0.5, 0.6, 0.7]}}}
+        expected_attachments = {
+            55: {
+                'asbestos': {
+                    'a11': [0.1/0.08, 0.5/0.1, 0.3/0.52],
+                    'a22': [np.nan, -0.2/-0.5, -0.4/-0.2]},  # Nan was -0.5/0.
+                'surgery': {
+                    'a11': [0.05/(0.35*0.15),
+                            0.1/(0.05+0.4*-0.15),
+                            0.1/(0.1+0.5*-0.1)],
+                    'a22': [-0.25/(0.25*-0.15),
+                            -0.15/(-0.25+0.3*0.15),
+                            -0.05/(-0.15+0.3*0.1)]}}}
+        computed_attachments = gll.compute_all_teams_attachments(
+            teams_data=teams_data, eps=0)
+        utils.assert_dict_equals(
+            d1=expected_attachments,
+            d2=computed_attachments,
+            almost_number_of_decimals=6)

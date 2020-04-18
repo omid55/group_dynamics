@@ -1,7 +1,7 @@
 ###############################################################################
 # Omid55
 # Start date:     16 Jan 2020
-# Modified date:  13 Feb 2020
+# Modified date:  14 Apr 2020
 # Author:   Omid Askarisichani
 # Email:    omid55@cs.ucsb.edu
 # Module to load group dynamics logs for every team.
@@ -13,8 +13,10 @@ import glob
 import json
 import numpy as np
 import pandas as pd
+from collections import defaultdict
 from os.path import expanduser
 from typing import Dict
+from typing import List
 from typing import Text
 from typing import Tuple
 
@@ -382,3 +384,80 @@ def get_all_groups_info_in_one_dataframe(
         'Period2 opinion', 'Period2 wii', 'Period2 wij',
         'Period3 opinion', 'Period3 wii', 'Period3 wij'])
     return data
+
+
+def compute_attachment_to_initial_opinion(
+        xi: List[float],
+        xj: List[float],
+        wij: List[float],
+        eps: float = 0.0) -> List[float]:
+    """Computes the level of attachment to the initial opinion for person i.
+
+    For person i is computed as follows
+    a_{i, i} =
+        \frac{x_i(k+1) - x_i(0)}{x_i(k) - x_i(0) + w_{i, j}(k)(x_j(k) - x_i(k))}
+
+    Args:
+        xi: List of opinions for person i over time (multiple rounds).
+
+        xj: List of opinions for person j over time (multiple rounds).
+
+        wij: List of influence from person i to person j.
+
+        eps: The small amount to always add to both numerator and denominator.
+
+    Returns:
+        Value (level) of attachment to the initial opinion for person i over
+        time, called a_{i, i}. Also note if want to avoid the possibility of 
+        division by zero, one get use a small epsilon larger than zero to add
+        to both numerator and denominator always.
+
+    Raises:
+        ValueError: If the length of opinions were not the same or number of 
+        influence weights were not one less than the length of opinion vector.
+    """
+    if len(xi) != len(xj):
+        raise ValueError(
+            'Length of opinions do not match. xi: {}, xj: {}'.format(xi, xj))
+    if len(xi) != len(wij) + 1:
+        raise ValueError(
+            'Length of opinions and influences do not match. ')
+    opinion_len = len(xi)
+    aii = []
+    for k in range(opinion_len - 1):
+        numerator = xi[k+1] - xi[0] + eps
+        denominator = xi[k] - xi[0] + wij[k] * (xj[k] - xi[k]) + eps
+        if denominator == 0 and eps > 0:
+            print(
+                'Warning: choose a different epsilon.'
+                ' There has been an denominator equals 0'
+                ' with the current one which is {}.'.format(eps))
+        attachment = np.nan
+        if denominator != 0:
+            attachment = numerator / denominator
+        aii.append(attachment)
+    return aii
+
+
+def compute_all_teams_attachments(
+        teams_data: Dict[Text, Dict[Text, Dict[Text, List[float]]]],
+        eps: float = 0.0) -> Dict[Text, Dict[Text, Dict[Text, List[float]]]]:
+    """Computes all of teams' attachments.
+    """
+    teams_attachment = defaultdict(dict)
+    for team_index, team_id in enumerate(teams_data.keys()):
+        for issue_index, issue in enumerate(teams_data[team_id].keys()):
+            # Computing the level of attachment to the initial opinion (aii).
+            this_team_issue = teams_data[team_id][issue]
+            a11 = compute_attachment_to_initial_opinion(
+                xi=this_team_issue['x1'],
+                xj=this_team_issue['x2'],
+                wij=this_team_issue['w12'],
+                eps=eps)
+            a22 = compute_attachment_to_initial_opinion(
+                xi=this_team_issue['x2'],
+                xj=this_team_issue['x1'],
+                wij=this_team_issue['w21'],
+                eps=eps)
+            teams_attachment[team_id][issue] = {'a11': a11, 'a22': a22}
+    return teams_attachment

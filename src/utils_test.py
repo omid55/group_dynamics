@@ -878,6 +878,81 @@ class MyTestClass(unittest.TestCase):
             transition_matrix, aperiodic_irreducible_eps=0.0001)
         np.testing.assert_array_almost_equal(expected, computed, decimal=4)
 
+    # =========================================================================
+    # ===================== assert_dict_equals ================================
+    # =========================================================================
+    def test_assert_dict_equals_when_empty(self):
+        d1 = {}
+        d2 = {}
+        utils.assert_dict_equals(d1, d2)
+
+    def test_assert_dict_equals_when_same(self):
+        d1 = {
+            'a': {'o1': [2, 5], 'o2': 5},
+            'b': {'p1': 'hello', 'p2': np.array([3, 9, 1])},
+            'c': []}
+        utils.assert_dict_equals(d1, d1)
+
+    def test_assert_dict_equals_when_equal(self):
+        d1 = {
+            'a': {'o1': [2, 5], 'o2': 5},
+            'b': {'p1': 'hello', 'p2': np.array([3, 9, 1])},
+            'c': []}
+        d2 = {
+            'a': {'o1': [2, 5], 'o2': 5},
+            'c': [],
+            'b': {'p2': np.array([3, 9, 1]), 'p1': 'hello'},}
+        utils.assert_dict_equals(d1, d2)
+
+    def test_assert_dict_equals_when_not_equal_in_values(self):
+        d1 = {
+            'a': {'o1': [2, 5], 'o2': 5},
+            'b': {'p1': 'hello', 'p2': np.array([3, 9, 1])},
+            'c': []}
+        d2 = {
+            'a': {'o1': [2, 5], 'o2': 5},
+            'b': {'p1': 'hello', 'p2': np.array([3, 9, 10])},
+            'c': []}
+        with self.assertRaises(AssertionError):
+            utils.assert_dict_equals(d1, d2)
+    
+    def test_assert_dict_equals_when_not_equal_in_keys(self):
+        d1 = {
+            'a': {'o1': [2, 5], 'o2': 5},
+            'b': {'p1': 'hello', 'p2': np.array([3, 9, 1])},
+            'c': []}
+        d2 = {
+            'a': {'o1': [2, 5], 'o2': 5},
+            'b': {'p1': 'hello', 'p2': np.array([3, 9, 1])},
+            'c': [],
+            'd': []}
+        with self.assertRaises(AssertionError):
+            utils.assert_dict_equals(d1, d2)
+    
+    def test_assert_dict_equals_when_not_equal_in_nested_keys(self):
+        d1 = {
+            'a': {'o1': [2, 5], 'o2': 5},
+            'b': {'p1': 'hello', 'p2': np.array([3, 9, 1]), 'p3': np.zeros(2)},
+            'c': []}
+        d2 = {
+            'a': {'o1': [2, 5], 'o2': 5},
+            'b': {'p1': 'hello', 'p2': np.array([3, 9, 1])},
+            'c': []}
+        with self.assertRaises(AssertionError):
+            utils.assert_dict_equals(d1, d2)
+
+    def test_assert_dict_equals_when_not_equal_types_in_values(self):
+        d1 = {
+            'a': {'o1': [2, 5], 'o2': '5'},
+            'b': {'p1': 'hello', 'p2': np.array([3, 9, 1])},
+            'c': []}
+        d2 = {
+            'a': {'o1': [2, 5], 'o2': 5},
+            'b': {'p1': 'hello', 'p2': np.array([3, 9, 1])},
+            'c': []}
+        with self.assertRaises(AssertionError):
+            utils.assert_dict_equals(d1, d2)
+
 
 if __name__ == '__main__':
     unittest.main()
