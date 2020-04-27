@@ -255,6 +255,14 @@ class TestTeamLogsLoaderLoad(unittest.TestCase):
         with self.assertRaises(ValueError):
             gll.compute_attachment_to_initial_opinion(x1, x2, w12)
 
+    def test_compute_attachment_raises_when_start_k_was_not_0_or_1(
+            self):
+        x1 = [0.1, 0.2, 0.6, 0.4]
+        x2 = [0.9, 0.4, 0.7, 0.5]
+        w12 = [0.1, 0.0]
+        with self.assertRaises(ValueError):
+            gll.compute_attachment_to_initial_opinion(x1, x2, w12, start_k=-1)
+
     def test_compute_attachment_to_initial_opinion(self):
         x1 = [0.1, 0.2, 0.6, 0.4]
         x2 = [0.9, 0.4, 0.7, 0.5]
@@ -262,6 +270,15 @@ class TestTeamLogsLoaderLoad(unittest.TestCase):
         expected_a11 = [0.1/0.08, 0.5/0.1, 0.3/0.52]
         computed_a11 = gll.compute_attachment_to_initial_opinion(
             xi=x1, xj=x2, wij=w12, eps=0)
+        np_testing.assert_array_almost_equal(expected_a11, computed_a11)
+
+    def test_compute_attachment_to_initial_opinion_when_start_k_equals_1(self):
+        x1 = [0.1, 0.2, 0.6, 0.4]
+        x2 = [0.9, 0.4, 0.7, 0.5]
+        w12 = [0.1, 0.0, 0.2]
+        expected_a11 = [0.5/0.1, 0.3/0.52]
+        computed_a11 = gll.compute_attachment_to_initial_opinion(
+            xi=x1, xj=x2, wij=w12, start_k=1, eps=0)
         np_testing.assert_array_almost_equal(expected_a11, computed_a11)
 
     def test_compute_attachment_to_initial_opinion_when_division_by_zero(self):
@@ -289,6 +306,7 @@ class TestTeamLogsLoaderLoad(unittest.TestCase):
     # ================== compute_all_teams_attachments ========================
     # =========================================================================
     def test_compute_all_teams_attachments(self):
+        # Attachment to the initial opinion.
         teams_data = {
             55: {
                 'asbestos': {
@@ -314,8 +332,149 @@ class TestTeamLogsLoaderLoad(unittest.TestCase):
                             -0.15/(-0.25+0.3*0.15),
                             -0.05/(-0.15+0.3*0.1)]}}}
         computed_attachments = gll.compute_all_teams_attachments(
-            teams_data=teams_data, eps=0)
+            teams_data=teams_data,
+            start_k=0,
+            use_attachment_to_initial_opinion=True,
+            eps=0)
         utils.assert_dict_equals(
             d1=expected_attachments,
             d2=computed_attachments,
             almost_number_of_decimals=6)
+
+    def test_compute_all_teams_attachments_with_start_k_equals_1(self):
+        teams_data = {
+            55: {
+                'asbestos': {
+                    'w12': [0.1, 0.0, 0.2],
+                    'w21': [0.0, 0.0, 0.0],
+                    'x1': [0.1, 0.2, 0.6, 0.4],
+                    'x2': [0.9, 0.4, 0.7, 0.5]},
+                'surgery': {
+                    'w12': [0.35, 0.4, 0.5],
+                    'w21': [0.25, 0.3, 0.3],
+                    'x1': [0.6, 0.65, 0.7, 0.7],
+                    'x2': [0.75, 0.5, 0.6, 0.7]}}}
+        expected_attachments = {
+            55: {
+                'asbestos': {
+                    'a11': [0.5/0.1, 0.3/0.52],
+                    'a22': [-0.2/-0.5, -0.4/-0.2]},  # Nan was -0.5/0.
+                'surgery': {
+                    'a11': [0.1/(0.05+0.4*-0.15),
+                            0.1/(0.1+0.5*-0.1)],
+                    'a22': [-0.15/(-0.25+0.3*0.15),
+                            -0.05/(-0.15+0.3*0.1)]}}}
+        computed_attachments = gll.compute_all_teams_attachments(
+            teams_data=teams_data, start_k=1, eps=0)
+        utils.assert_dict_equals(
+            d1=expected_attachments,
+            d2=computed_attachments,
+            almost_number_of_decimals=6)
+
+    def test_compute_all_teams_attachments_to_before_discussion_opinion(self):
+        teams_data = {
+            55: {
+                'asbestos': {
+                    'w12': [0.1, 0.0, 0.2],
+                    'w21': [0.0, 0.0, 0.0],
+                    'x1': [0.1, 0.2, 0.6, 0.4],
+                    'x2': [0.9, 0.4, 0.7, 0.5]},
+                'surgery': {
+                    'w12': [0.35, 0.4, 0.5],
+                    'w21': [0.25, 0.3, 0.3],
+                    'x1': [0.6, 0.65, 0.7, 0.7],
+                    'x2': [0.75, 0.5, 0.6, 0.7]}}}
+        expected_attachments = {
+            55: {
+                'asbestos': {
+                    'a11': [0.1/0.08, 0.5/0.1, (0.4-0.2)/(0.6-0.2+0.2*(0.7-0.6))],
+                    'a22': [np.nan, -0.2/-0.5, (0.5-0.4)/(0.7-0.4)]},  # Nan was -0.5/0.
+                'surgery': {
+                    'a11': [0.05/(0.35*0.15),
+                            0.1/(0.05+0.4*-0.15),
+                            (0.7-0.65)/(0.7-0.65+0.5*(0.6-0.7))],  # denominator is 0.
+                    'a22': [-0.25/(0.25*-0.15),
+                            -0.15/(-0.25+0.3*0.15),
+                            (0.7-0.5)/(0.6-0.5+0.3*(0.7-0.6))]}}}
+        computed_attachments = gll.compute_all_teams_attachments(
+            teams_data=teams_data,
+            start_k=0,
+            use_attachment_to_initial_opinion=False,
+            eps=0)
+        utils.assert_dict_equals(
+            d1=expected_attachments,
+            d2=computed_attachments,
+            almost_number_of_decimals=6)
+
+    # =========================================================================
+    # =========== compute_attachment_to_opinion_before_discussion =============
+    # =========================================================================
+    def test_compute_attachment_before_disc_raises_when_not_matching_opinions(
+            self):
+        x1 = [0.1, 0.2, 0.6, 0.4]
+        x2 = [0.9, 0.4, 0.7]
+        w12 = [0.1, 0.0, 0.2]
+        with self.assertRaises(ValueError):
+            gll.compute_attachment_to_opinion_before_discussion(x1, x2, w12)
+
+    def test_compute_attachment_bef_disc_raises_when_not_matching_op_influence(
+            self):
+        x1 = [0.1, 0.2, 0.6, 0.4]
+        x2 = [0.9, 0.4, 0.7, 0.5]
+        w12 = [0.1, 0.0]
+        with self.assertRaises(ValueError):
+            gll.compute_attachment_to_opinion_before_discussion(x1, x2, w12)
+
+    def test_compute_attachment_before_disc_raises_when_start_k_was_not_0_or_1(
+            self):
+        x1 = [0.1, 0.2, 0.6, 0.4]
+        x2 = [0.9, 0.4, 0.7, 0.5]
+        w12 = [0.1, 0.0]
+        with self.assertRaises(ValueError):
+            gll.compute_attachment_to_opinion_before_discussion(
+                x1, x2, w12, start_k=-1)
+
+    def test_compute_attachment_to_opinion_before_discussion(self):
+        x1 = [0.1, 0.2, 0.6, 0.4]
+        x2 = [0.9, 0.4, 0.7, 0.5]
+        w12 = [0.1, 0.0, 0.2]
+        expected_a11 = [
+            0.1/0.08,
+            (0.6-0.1)/(0.2-0.1),
+            (0.4-0.2)/(0.6-0.2+0.2*(0.7-0.6))]
+        computed_a11 = gll.compute_attachment_to_opinion_before_discussion(
+            xi=x1, xj=x2, wij=w12, eps=0)
+        np_testing.assert_array_almost_equal(expected_a11, computed_a11)
+
+    def test_compute_attachment_to_opinion_before_disc_when_start_k_equals_1(
+            self):
+        x1 = [0.1, 0.2, 0.6, 0.4]
+        x2 = [0.9, 0.4, 0.7, 0.5]
+        w12 = [0.1, 0.0, 0.2]
+        expected_a11 = [(0.6-0.1)/(0.2-0.1),
+                        (0.4-0.2)/(0.6-0.2+0.2*(0.7-0.6))]
+        computed_a11 = gll.compute_attachment_to_opinion_before_discussion(
+            xi=x1, xj=x2, wij=w12, start_k=1, eps=0)
+        np_testing.assert_array_almost_equal(expected_a11, computed_a11)
+
+    def test_compute_attachment_to_opinion_before_discussion_when_div_by_zero(
+            self):
+        x1 = [0.2, 0.2, 0.2]
+        x2 = [0.4, 0.4, 0.4]
+        w12 = [0.1, 0.0]
+        expected_a11 = [0, np.nan]
+        computed_a11 = gll.compute_attachment_to_opinion_before_discussion(
+            xi=x1, xj=x2, wij=w12, eps=0)
+        np_testing.assert_array_almost_equal(expected_a11, computed_a11)
+
+    def test_compute_attachment_to_opinion_bef_disc_when_div_by_zero_with_eps(
+            self):
+        x1 = [0.2, 0.2, 0.2]
+        x2 = [0.4, 0.4, 0.4]
+        w12 = [0.1, 0.0]
+        eps = 0.01
+        expected_a11 = [(0.2 - 0.2 + eps) / (0.1 * (0.4 - 0.2) + eps),
+                        eps / eps]
+        computed_a11 = gll.compute_attachment_to_opinion_before_discussion(
+            xi=x1, xj=x2, wij=w12, eps=eps)
+        np_testing.assert_array_almost_equal(expected_a11, computed_a11)

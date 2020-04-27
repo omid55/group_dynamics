@@ -390,12 +390,12 @@ def compute_attachment_to_initial_opinion(
         xi: List[float],
         xj: List[float],
         wij: List[float],
+        start_k: int = 0,
         eps: float = 0.0) -> List[float]:
     """Computes the level of attachment to the initial opinion for person i.
 
-    For person i is computed as follows
-    a_{i, i} =
-        \frac{x_i(k+1) - x_i(0)}{x_i(k) - x_i(0) + w_{i, j}(k)(x_j(k) - x_i(k))}
+    For person i at time k is computed as follows:
+    a_{i, i}(k) = \frac{x_i(k+1) - x_i(0) + \epsilon}{x_i(k) - x_i(0) + w_{i, j}(k)\bigg(x_j(k) - x_i(k)\bigg) + \epsilon}
 
     Args:
         xi: List of opinions for person i over time (multiple rounds).
@@ -403,6 +403,8 @@ def compute_attachment_to_initial_opinion(
         xj: List of opinions for person j over time (multiple rounds).
 
         wij: List of influence from person i to person j.
+
+        start_k: Start value for k to be 0 or 1.
 
         eps: The small amount to always add to both numerator and denominator.
 
@@ -415,6 +417,7 @@ def compute_attachment_to_initial_opinion(
     Raises:
         ValueError: If the length of opinions were not the same or number of 
         influence weights were not one less than the length of opinion vector.
+        Also if start_k was given anything but 0 or 1.
     """
     if len(xi) != len(xj):
         raise ValueError(
@@ -422,9 +425,12 @@ def compute_attachment_to_initial_opinion(
     if len(xi) != len(wij) + 1:
         raise ValueError(
             'Length of opinions and influences do not match. ')
+    if start_k != 0 and start_k != 1:
+        raise ValueError('Start k should be 0 or 1. It was given {}'.format(
+            start_k))
     opinion_len = len(xi)
     aii = []
-    for k in range(opinion_len - 1):
+    for k in range(start_k, opinion_len - 1):
         numerator = xi[k+1] - xi[0] + eps
         denominator = xi[k] - xi[0] + wij[k] * (xj[k] - xi[k]) + eps
         if denominator == 0 and eps > 0:
@@ -441,23 +447,115 @@ def compute_attachment_to_initial_opinion(
 
 def compute_all_teams_attachments(
         teams_data: Dict[Text, Dict[Text, Dict[Text, List[float]]]],
+        start_k: int = 0,
+        use_attachment_to_initial_opinion: bool = True,
         eps: float = 0.0) -> Dict[Text, Dict[Text, Dict[Text, List[float]]]]:
     """Computes all of teams' attachments.
+
+    Args:
+        teams_data: Dictionary of opinions and inf. weights for dyads over time.
+
+        start_k: Start value for k to be 0 or 1.
+
+        use_attachment_to_initial_opinion: If true using attachment to the initial opinion.
+
+        eps: The small amount to always add to both numerator and denominator.
+
+    Returns:
+        Dictionary of teams with their attachment to the intial opinion.
+
+    Raises:
+        ValueError: If function compute_attachment_to_initial_opinion raises
+        due to incorrect size of opinions, influence weights, or start k value.
     """
     teams_attachment = defaultdict(dict)
     for team_index, team_id in enumerate(teams_data.keys()):
         for issue_index, issue in enumerate(teams_data[team_id].keys()):
             # Computing the level of attachment to the initial opinion (aii).
             this_team_issue = teams_data[team_id][issue]
-            a11 = compute_attachment_to_initial_opinion(
+            if use_attachment_to_initial_opinion:
+                attachment_function = compute_attachment_to_initial_opinion
+            else:
+                attachment_function = (
+                    compute_attachment_to_opinion_before_discussion)
+            a11 = attachment_function(
                 xi=this_team_issue['x1'],
                 xj=this_team_issue['x2'],
                 wij=this_team_issue['w12'],
+                start_k=start_k,
                 eps=eps)
-            a22 = compute_attachment_to_initial_opinion(
+            a22 = attachment_function(
                 xi=this_team_issue['x2'],
                 xj=this_team_issue['x1'],
                 wij=this_team_issue['w21'],
+                start_k=start_k,
                 eps=eps)
             teams_attachment[team_id][issue] = {'a11': a11, 'a22': a22}
     return teams_attachment
+
+
+def compute_attachment_to_opinion_before_discussion(
+        xi: List[float],
+        xj: List[float],
+        wij: List[float],
+        start_k: int = 0,
+        eps: float = 0.0) -> List[float]:
+    """Computes the attachment to the opinion before discussion for person i.
+
+    This is similar to attachment to the initial opinion but considers every
+    before discussion opinion as an initial opinion somehow.
+    For person i at time k is computed as follows:
+    a_{i, i}(k) = \frac{x_i(k+1) - x_i(k-1) + \epsilon}{x_i(k) - x_i(k-1) + w_{i, j}(k)\bigg(x_j(k) - x_i(k)\bigg) + \epsilon}
+
+    Args:
+        xi: List of opinions for person i over time (multiple rounds).
+
+        xj: List of opinions for person j over time (multiple rounds).
+
+        wij: List of influence from person i to person j.
+
+        start_k: Start value for k to be 0 or 1.
+
+        eps: The small amount to always add to both numerator and denominator.
+
+    Returns:
+        Value (level) of attachment to the the opinion before the discussion
+        for person i over time, called a_{i, i}. Also note if want to avoid
+        the possibility of division by zero, one get use a small epsilon larger
+        than zero to add to both numerator and denominator always.
+
+    Raises:
+        ValueError: If the length of opinions were not the same or number of 
+        influence weights were not one less than the length of opinion vector.
+        Also if start_k was given anything but 0 or 1.
+    """
+    if len(xi) != len(xj):
+        raise ValueError(
+            'Length of opinions do not match. xi: {}, xj: {}'.format(xi, xj))
+    if len(xi) != len(wij) + 1:
+        raise ValueError(
+            'Length of opinions and influences do not match. ')
+    if start_k != 0 and start_k != 1:
+        raise ValueError('Start k should be 0 or 1. It was given {}'.format(
+            start_k))
+    opinion_len = len(xi)
+    aii = []
+    for k in range(start_k, opinion_len - 1):
+        if k > 0:
+            numerator = xi[k+1] - xi[k-1] + eps
+            denominator = xi[k] - xi[k-1] + wij[k] * (xj[k] - xi[k]) + eps
+        else:
+            numerator = xi[k+1] - xi[k] + eps
+            denominator = wij[k] * (xj[k] - xi[k]) + eps
+        # numerator = xi[k+1] - xi[k] + eps
+        # denominator = wij[k] * (xj[k] - xi[k]) + eps
+        if denominator == 0 and eps > 0:
+            print(
+                'Warning: choose a different epsilon.'
+                ' There has been an denominator equals 0'
+                ' with the current one which is {}.'.format(eps))
+        attachment = np.nan
+        if denominator != 0:
+            attachment = numerator / denominator
+        aii.append(attachment)
+    return aii
