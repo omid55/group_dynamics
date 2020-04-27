@@ -445,55 +445,6 @@ def compute_attachment_to_initial_opinion(
     return aii
 
 
-def compute_all_teams_attachments(
-        teams_data: Dict[Text, Dict[Text, Dict[Text, List[float]]]],
-        start_k: int = 0,
-        use_attachment_to_initial_opinion: bool = True,
-        eps: float = 0.0) -> Dict[Text, Dict[Text, Dict[Text, List[float]]]]:
-    """Computes all of teams' attachments.
-
-    Args:
-        teams_data: Dictionary of opinions and inf. weights for dyads over time.
-
-        start_k: Start value for k to be 0 or 1.
-
-        use_attachment_to_initial_opinion: If true using attachment to the initial opinion.
-
-        eps: The small amount to always add to both numerator and denominator.
-
-    Returns:
-        Dictionary of teams with their attachment to the intial opinion.
-
-    Raises:
-        ValueError: If function compute_attachment_to_initial_opinion raises
-        due to incorrect size of opinions, influence weights, or start k value.
-    """
-    teams_attachment = defaultdict(dict)
-    for team_index, team_id in enumerate(teams_data.keys()):
-        for issue_index, issue in enumerate(teams_data[team_id].keys()):
-            # Computing the level of attachment to the initial opinion (aii).
-            this_team_issue = teams_data[team_id][issue]
-            if use_attachment_to_initial_opinion:
-                attachment_function = compute_attachment_to_initial_opinion
-            else:
-                attachment_function = (
-                    compute_attachment_to_opinion_before_discussion)
-            a11 = attachment_function(
-                xi=this_team_issue['x1'],
-                xj=this_team_issue['x2'],
-                wij=this_team_issue['w12'],
-                start_k=start_k,
-                eps=eps)
-            a22 = attachment_function(
-                xi=this_team_issue['x2'],
-                xj=this_team_issue['x1'],
-                wij=this_team_issue['w21'],
-                start_k=start_k,
-                eps=eps)
-            teams_attachment[team_id][issue] = {'a11': a11, 'a22': a22}
-    return teams_attachment
-
-
 def compute_attachment_to_opinion_before_discussion(
         xi: List[float],
         xj: List[float],
@@ -559,3 +510,52 @@ def compute_attachment_to_opinion_before_discussion(
             attachment = numerator / denominator
         aii.append(attachment)
     return aii
+
+
+def compute_all_teams_attachments(
+        teams_data: Dict[Text, Dict[Text, Dict[Text, List[float]]]],
+        start_k: int = 0,
+        use_attachment_to_initial_opinion: bool = True,
+        eps: float = 0.0) -> Dict[Text, Dict[Text, Dict[Text, List[float]]]]:
+    """Computes all of teams' attachments.
+
+    Args:
+        teams_data: Dictionary of opinions and inf. weights for dyads over time.
+
+        start_k: Start value for k to be 0 or 1.
+
+        use_attachment_to_initial_opinion: If true using attachment to the initial opinion.
+
+        eps: The small amount to always add to both numerator and denominator.
+
+    Returns:
+        Dictionary of teams with their attachment to the intial opinion.
+
+    Raises:
+        ValueError: If function compute_attachment_to_initial_opinion raises
+        due to incorrect size of opinions, influence weights, or start k value.
+    """
+    teams_attachment = defaultdict(dict)
+    for team_index, team_id in enumerate(teams_data.keys()):
+        for issue_index, issue in enumerate(teams_data[team_id].keys()):
+            # Computing the level of attachment to the initial opinion (aii).
+            this_team_issue = teams_data[team_id][issue]
+            if use_attachment_to_initial_opinion:
+                attachment_function = compute_attachment_to_initial_opinion
+            else:
+                attachment_function = (
+                    compute_attachment_to_opinion_before_discussion)
+            a11 = attachment_function(
+                xi=this_team_issue['x1'],
+                xj=this_team_issue['x2'],
+                wij=this_team_issue['w12'],
+                start_k=start_k,
+                eps=eps)
+            a22 = attachment_function(
+                xi=this_team_issue['x2'],
+                xj=this_team_issue['x1'],
+                wij=this_team_issue['w21'],
+                start_k=start_k,
+                eps=eps)
+            teams_attachment[team_id][issue] = {'a11': a11, 'a22': a22}
+    return teams_attachment
