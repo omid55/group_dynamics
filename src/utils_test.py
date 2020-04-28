@@ -953,6 +953,51 @@ class MyTestClass(unittest.TestCase):
         with self.assertRaises(AssertionError):
             utils.assert_dict_equals(d1, d2)
 
+    def test_assert_dict_equals_when_equal_nested_array_of_dicts(self):
+        d1 = {
+            'a': {'o1': [2, 5], 'o2': 5},
+            'b': {'p1': 'hello', 'p2': np.array([3, 9, 1])},
+            'c': [{'a1': 4, 'a2': [2, 5], 'a3': 'ok'}]}
+        d2 = {
+            'a': {'o1': [2, 5], 'o2': 5},
+            'b': {'p1': 'hello', 'p2': np.array([3, 9, 1])},
+            'c': [{'a1': 4, 'a2': [2, 5], 'a3': 'ok'}]}
+        utils.assert_dict_equals(d1, d2)
+
+    def test_assert_dict_equals_when_not_equal_nested_array_of_dicts(self):
+        d1 = {
+            'a': {'o1': [2, 5], 'o2': 5},
+            'b': {'p1': 'hello', 'p2': np.array([3, 9, 1])},
+            'c': [{'a1': 4, 'a2': [2, 5], 'a3': 'ok'}]}
+        d2 = {
+            'a': {'o1': [2, 5], 'o2': 5},
+            'b': {'p1': 'hello', 'p2': np.array([3, 9, 1])},
+            'c': [{'a1': 4, 'a2': [2, 7, 5], 'a3': 'ok'}]}
+        with self.assertRaises(AssertionError):
+            utils.assert_dict_equals(d1, d2)
+
+    # =========================================================================
+    # ======================== is_almost_zero =================================
+    # =========================================================================
+    def test_is_almost_zero_raises_when_negative_num_of_exponents(self):
+        with self.assertRaises(ValueError):
+            utils.is_almost_zero(x=0.1, num_of_exponents=-2)
+
+    def test_is_almost_zero_when_not_close_enough_to_zero(self):
+        self.assertFalse(utils.is_almost_zero(x=0.1, num_of_exponents=4))
+
+    def test_is_almost_zero_when_close_enough_to_zero(self):
+        self.assertTrue(utils.is_almost_zero(x=0.000099, num_of_exponents=4))
+    
+    def test_is_almost_zero_when_negative_and_not_close_to_zero(self):
+        self.assertFalse(utils.is_almost_zero(x=-1, num_of_exponents=4))
+
+    def test_is_almost_zero_when_negative_but_small_enough(self):
+        self.assertTrue(utils.is_almost_zero(x=-0.00001, num_of_exponents=4))
+
+    def test_is_almost_zero_when_exactly_zero(self):
+        self.assertTrue(utils.is_almost_zero(x=0.0, num_of_exponents=10))
+
 
 if __name__ == '__main__':
     unittest.main()

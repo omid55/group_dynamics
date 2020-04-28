@@ -268,8 +268,9 @@ class TestTeamLogsLoaderLoad(unittest.TestCase):
         x2 = [0.9, 0.4, 0.7, 0.5]
         w12 = [0.1, 0.0, 0.2]
         expected_a11 = [0.1/0.08, 0.5/0.1, 0.3/0.52]
-        computed_a11 = gll.compute_attachment_to_initial_opinion(
-            xi=x1, xj=x2, wij=w12, eps=0)
+        computed_a11, compute_a11_nan_details = (
+            gll.compute_attachment_to_initial_opinion(
+                xi=x1, xj=x2, wij=w12, eps=0))
         np_testing.assert_array_almost_equal(expected_a11, computed_a11)
 
     def test_compute_attachment_to_initial_opinion_when_start_k_equals_1(self):
@@ -277,7 +278,7 @@ class TestTeamLogsLoaderLoad(unittest.TestCase):
         x2 = [0.9, 0.4, 0.7, 0.5]
         w12 = [0.1, 0.0, 0.2]
         expected_a11 = [0.5/0.1, 0.3/0.52]
-        computed_a11 = gll.compute_attachment_to_initial_opinion(
+        computed_a11, _ = gll.compute_attachment_to_initial_opinion(
             xi=x1, xj=x2, wij=w12, start_k=1, eps=0)
         np_testing.assert_array_almost_equal(expected_a11, computed_a11)
 
@@ -287,7 +288,7 @@ class TestTeamLogsLoaderLoad(unittest.TestCase):
         w12 = [0.1, 0.0]
         expected_a11 = [0 / 0.02,
                         np.nan]
-        computed_a11 = gll.compute_attachment_to_initial_opinion(
+        computed_a11, _ = gll.compute_attachment_to_initial_opinion(
             xi=x1, xj=x2, wij=w12, eps=0)
         np_testing.assert_array_almost_equal(expected_a11, computed_a11)
 
@@ -298,7 +299,7 @@ class TestTeamLogsLoaderLoad(unittest.TestCase):
         eps = 0.01
         expected_a11 = [(0 + eps) / (0.02 + eps),
                         (0 + eps) / (0 + eps)]
-        computed_a11 = gll.compute_attachment_to_initial_opinion(
+        computed_a11, _ = gll.compute_attachment_to_initial_opinion(
             xi=x1, xj=x2, wij=w12, eps=eps)
         np_testing.assert_array_almost_equal(expected_a11, computed_a11)
 
@@ -338,7 +339,7 @@ class TestTeamLogsLoaderLoad(unittest.TestCase):
             0.1/0.08,
             (0.6-0.1)/(0.2-0.1),
             (0.4-0.2)/(0.6-0.2+0.2*(0.7-0.6))]
-        computed_a11 = gll.compute_attachment_to_opinion_before_discussion(
+        computed_a11, _ = gll.compute_attachment_to_opinion_before_discussion(
             xi=x1, xj=x2, wij=w12, eps=0)
         np_testing.assert_array_almost_equal(expected_a11, computed_a11)
 
@@ -349,7 +350,7 @@ class TestTeamLogsLoaderLoad(unittest.TestCase):
         w12 = [0.1, 0.0, 0.2]
         expected_a11 = [(0.6-0.1)/(0.2-0.1),
                         (0.4-0.2)/(0.6-0.2+0.2*(0.7-0.6))]
-        computed_a11 = gll.compute_attachment_to_opinion_before_discussion(
+        computed_a11, _ = gll.compute_attachment_to_opinion_before_discussion(
             xi=x1, xj=x2, wij=w12, start_k=1, eps=0)
         np_testing.assert_array_almost_equal(expected_a11, computed_a11)
 
@@ -359,7 +360,7 @@ class TestTeamLogsLoaderLoad(unittest.TestCase):
         x2 = [0.4, 0.4, 0.4]
         w12 = [0.1, 0.0]
         expected_a11 = [0, np.nan]
-        computed_a11 = gll.compute_attachment_to_opinion_before_discussion(
+        computed_a11, _ = gll.compute_attachment_to_opinion_before_discussion(
             xi=x1, xj=x2, wij=w12, eps=0)
         np_testing.assert_array_almost_equal(expected_a11, computed_a11)
 
@@ -371,7 +372,7 @@ class TestTeamLogsLoaderLoad(unittest.TestCase):
         eps = 0.01
         expected_a11 = [(0.2 - 0.2 + eps) / (0.1 * (0.4 - 0.2) + eps),
                         eps / eps]
-        computed_a11 = gll.compute_attachment_to_opinion_before_discussion(
+        computed_a11, _ = gll.compute_attachment_to_opinion_before_discussion(
             xi=x1, xj=x2, wij=w12, eps=eps)
         np_testing.assert_array_almost_equal(expected_a11, computed_a11)
 
@@ -396,14 +397,21 @@ class TestTeamLogsLoaderLoad(unittest.TestCase):
             55: {
                 'asbestos': {
                     'a11': [0.1/0.08, 0.5/0.1, 0.3/0.52],
-                    'a22': [np.nan, -0.2/-0.5, -0.4/-0.2]},  # Nan was -0.5/0.
+                    'a22': [np.nan, -0.2/-0.5, -0.4/-0.2],    # Nan was -0.5/0.
+                    'a11_nan_details': [{}, {}, {}],
+                    'a22_nan_details': [
+                        {'n/0': 1, 'xi[k]-xi[0]==0': 1, 'wij[k]==0': 1}, {}, {}]
+                    },
                 'surgery': {
                     'a11': [0.05/(0.35*0.15),
                             0.1/(0.05+0.4*-0.15),
                             0.1/(0.1+0.5*-0.1)],
                     'a22': [-0.25/(0.25*-0.15),
                             -0.15/(-0.25+0.3*0.15),
-                            -0.05/(-0.15+0.3*0.1)]}}}
+                            -0.05/(-0.15+0.3*0.1)],
+                    'a11_nan_details': [{}, {}, {}],
+                    'a22_nan_details': [{}, {}, {}]
+                    }}}
         computed_attachments = gll.compute_all_teams_attachments(
             teams_data=teams_data,
             start_k=0,
@@ -431,12 +439,16 @@ class TestTeamLogsLoaderLoad(unittest.TestCase):
             55: {
                 'asbestos': {
                     'a11': [0.5/0.1, 0.3/0.52],
-                    'a22': [-0.2/-0.5, -0.4/-0.2]},  # Nan was -0.5/0.
+                    'a22': [-0.2/-0.5, -0.4/-0.2],
+                    'a11_nan_details': [{}, {}],
+                    'a22_nan_details': [{}, {}]},
                 'surgery': {
                     'a11': [0.1/(0.05+0.4*-0.15),
                             0.1/(0.1+0.5*-0.1)],
                     'a22': [-0.15/(-0.25+0.3*0.15),
-                            -0.05/(-0.15+0.3*0.1)]}}}
+                            -0.05/(-0.15+0.3*0.1)],
+                            'a11_nan_details': [{}, {}],
+                            'a22_nan_details': [{}, {}]}}}
         computed_attachments = gll.compute_all_teams_attachments(
             teams_data=teams_data, start_k=1, eps=0)
         utils.assert_dict_equals(
@@ -461,14 +473,20 @@ class TestTeamLogsLoaderLoad(unittest.TestCase):
             55: {
                 'asbestos': {
                     'a11': [0.1/0.08, 0.5/0.1, (0.4-0.2)/(0.6-0.2+0.2*(0.7-0.6))],
-                    'a22': [np.nan, -0.2/-0.5, (0.5-0.4)/(0.7-0.4)]},  # Nan was -0.5/0.
+                    'a22': [np.nan, -0.2/-0.5, (0.5-0.4)/(0.7-0.4)],  # Nan was -0.5/0.
+                    'a11_nan_details': [{}, {}, {}],
+                    'a22_nan_details': [{'n/0': 1, 'wij[k]==0': 1}, {}, {}]
+                    },
                 'surgery': {
                     'a11': [0.05/(0.35*0.15),
                             0.1/(0.05+0.4*-0.15),
                             (0.7-0.65)/(0.7-0.65+0.5*(0.6-0.7))],  # denominator is 0.
                     'a22': [-0.25/(0.25*-0.15),
                             -0.15/(-0.25+0.3*0.15),
-                            (0.7-0.5)/(0.6-0.5+0.3*(0.7-0.6))]}}}
+                            (0.7-0.5)/(0.6-0.5+0.3*(0.7-0.6))],
+                    'a11_nan_details': [{}, {}, {'n/0': 1}],
+                    'a22_nan_details': [{}, {}, {}]
+                    }}}
         computed_attachments = gll.compute_all_teams_attachments(
             teams_data=teams_data,
             start_k=0,

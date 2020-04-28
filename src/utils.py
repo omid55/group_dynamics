@@ -951,7 +951,13 @@ def assert_dict_equals(
     """Checks if two nested dictionary are (almost) equal.
 
     If almost_number_of_decimals larger than 0, then it checks for that many
-    decimal points. Otherwise, it checks for exact match.
+    decimal points. Otherwise, it checks for exact match. Also if there was
+    a nested list of dictionaries, it can check every dictionary item in the
+    list recursively. Please do not use an inhomogenous list that includes a 
+    dictionary and other types altogether. If there was a need for inhomogenous
+    types in one object, it is best to use a dictionary. Thus, a list with
+    different types is one of problems that this assert might not be able to
+    check.
 
     Args:
         d1: First dictionary to be compared.
@@ -980,11 +986,19 @@ def assert_dict_equals(
                 ' values {}\'s type: {} != {}'.format(
                     key, type(v1), type(v2)))
         if isinstance(v1, list) or isinstance(v1, np.ndarray):
-            if almost_number_of_decimals > 0:
-                np.testing.assert_array_almost_equal(
-                    v1, v2, decimal=almost_number_of_decimals)
+            if len(v1) > 0 and isinstance(v1[0], dict):
+                for i in range(len(v1)):
+                    if isinstance(v1[i], dict):
+                        assert_dict_equals(
+                            d1=v1[i],
+                            d2=v2[i],
+                            almost_number_of_decimals=almost_number_of_decimals)
             else:
-                np.testing.assert_array_equal(v1, v2)
+                if almost_number_of_decimals > 0:
+                    np.testing.assert_array_almost_equal(
+                        v1, v2, decimal=almost_number_of_decimals)
+                else:
+                    np.testing.assert_array_equal(v1, v2)
         elif isinstance(v1, dict):
             assert_dict_equals(
                 d1=v1,
@@ -994,3 +1008,31 @@ def assert_dict_equals(
             raise AssertionError(
                 'Two dictionaries have different values: {} != {}'.format(
                     v1, v2))
+
+
+def is_almost_zero(
+        x: float,
+        num_of_exponents: int = 6) -> bool:
+    """Checks if a num is almost 0 taking into account tiny mistake by python.
+    
+    Sometimes in adding, division and etc. some mistakes are introduced by
+    python. This funcions checks whether a number is 0 taking into account
+    with a small desired window of margin. The larger num_of_exponents is, less
+    margin for error.
+
+    Args:
+        x: The number that we want to be tested.
+
+        num_of_exponents: The number of n for error of 1e-n.
+
+    Returns:
+        If the given number is almost zero or not.
+
+    Raises:
+        ValueError: When num of exponents were given negative.
+    """
+    if num_of_exponents < 0:
+        raise ValueError('Number of exponents should be positive. '
+                         'It was {}'.format(num_of_exponents))
+    window_range = 10 ** -num_of_exponents
+    return (x >= -window_range) and (x <= window_range)

@@ -391,7 +391,7 @@ def compute_attachment_to_initial_opinion(
         xj: List[float],
         wij: List[float],
         start_k: int = 0,
-        eps: float = 0.0) -> List[float]:
+        eps: float = 0.0) -> Tuple[List[float], List[Dict[Text, int]]]:
     """Computes the level of attachment to the initial opinion for person i.
 
     For person i at time k is computed as follows:
@@ -429,20 +429,33 @@ def compute_attachment_to_initial_opinion(
         raise ValueError('Start k should be 0 or 1. It was given {}'.format(
             start_k))
     opinion_len = len(xi)
+    aii_nan_details = []
     aii = []
     for k in range(start_k, opinion_len - 1):
         numerator = xi[k+1] - xi[0] + eps
         denominator = xi[k] - xi[0] + wij[k] * (xj[k] - xi[k]) + eps
-        if denominator == 0 and eps > 0:
-            print(
-                'Warning: choose a different epsilon.'
-                ' There has been an denominator equals 0'
-                ' with the current one which is {}.'.format(eps))
+        # Getting the details about how NaN is happening.
+        aii_nan_detail = {}
+        if numerator == 0 and utils.is_almost_zero(denominator):
+            aii_nan_detail['0/0'] = 1
+        if numerator != 0 and utils.is_almost_zero(denominator):
+            aii_nan_detail['n/0'] = 1
+        if utils.is_almost_zero(denominator) and xi[k] - xi[0] == 0:
+            aii_nan_detail['xi[k]-xi[0]==0'] = 1
+        if utils.is_almost_zero(denominator) and wij[k] == 0:
+            aii_nan_detail['wij[k]==0'] = 1
+        if utils.is_almost_zero(denominator) and xj[k] - xi[k] == 0:
+            aii_nan_detail['xj[k]-xi[k]==0'] = 1
+        if utils.is_almost_zero(denominator) and eps > 0:
+            print('Warning: choose a different epsilon.'
+                  ' There has been an denominator equals 0'
+                  ' with the current one which is {}.'.format(eps))
         attachment = np.nan
         if denominator != 0:
             attachment = numerator / denominator
         aii.append(attachment)
-    return aii
+        aii_nan_details.append(aii_nan_detail)
+    return aii, aii_nan_details
 
 
 def compute_attachment_to_opinion_before_discussion(
@@ -450,7 +463,7 @@ def compute_attachment_to_opinion_before_discussion(
         xj: List[float],
         wij: List[float],
         start_k: int = 0,
-        eps: float = 0.0) -> List[float]:
+        eps: float = 0.0) -> Tuple[List[float], List[Dict[Text, int]]]:
     """Computes the attachment to the opinion before discussion for person i.
 
     This is similar to attachment to the initial opinion but considers every
@@ -490,6 +503,7 @@ def compute_attachment_to_opinion_before_discussion(
         raise ValueError('Start k should be 0 or 1. It was given {}'.format(
             start_k))
     opinion_len = len(xi)
+    aii_nan_details = []
     aii = []
     for k in range(start_k, opinion_len - 1):
         if k > 0:
@@ -498,9 +512,21 @@ def compute_attachment_to_opinion_before_discussion(
         else:
             numerator = xi[k+1] - xi[k] + eps
             denominator = wij[k] * (xj[k] - xi[k]) + eps
+        # Getting the details about how NaN is happening.
+        aii_nan_detail = {}
+        if utils.is_almost_zero(numerator) and utils.is_almost_zero(denominator):
+            aii_nan_detail['0/0'] = 1
+        if not utils.is_almost_zero(numerator) and utils.is_almost_zero(denominator):
+            aii_nan_detail['n/0'] = 1
+        if utils.is_almost_zero(denominator) and k > 0 and utils.is_almost_zero(xi[k] - xi[k-1]):
+            aii_nan_detail['xi[k]-xi[k-1]==0'] = 1
+        if utils.is_almost_zero(denominator) and utils.is_almost_zero(wij[k]):
+            aii_nan_detail['wij[k]==0'] = 1
+        if utils.is_almost_zero(denominator) and utils.is_almost_zero(xj[k] - xi[k]):
+            aii_nan_detail['xj[k]-xi[k]==0'] = 1
         # numerator = xi[k+1] - xi[k] + eps
         # denominator = wij[k] * (xj[k] - xi[k]) + eps
-        if denominator == 0 and eps > 0:
+        if utils.is_almost_zero(denominator) and eps > 0:
             print(
                 'Warning: choose a different epsilon.'
                 ' There has been an denominator equals 0'
@@ -509,7 +535,8 @@ def compute_attachment_to_opinion_before_discussion(
         if denominator != 0:
             attachment = numerator / denominator
         aii.append(attachment)
-    return aii
+        aii_nan_details.append(aii_nan_detail)
+    return aii, aii_nan_details
 
 
 def compute_all_teams_attachments(
@@ -545,17 +572,21 @@ def compute_all_teams_attachments(
             else:
                 attachment_function = (
                     compute_attachment_to_opinion_before_discussion)
-            a11 = attachment_function(
+            a11, a11_nan_details = attachment_function(
                 xi=this_team_issue['x1'],
                 xj=this_team_issue['x2'],
                 wij=this_team_issue['w12'],
                 start_k=start_k,
                 eps=eps)
-            a22 = attachment_function(
+            a22, a22_nan_details = attachment_function(
                 xi=this_team_issue['x2'],
                 xj=this_team_issue['x1'],
                 wij=this_team_issue['w21'],
                 start_k=start_k,
                 eps=eps)
-            teams_attachment[team_id][issue] = {'a11': a11, 'a22': a22}
+            teams_attachment[team_id][issue] = {
+                'a11': a11,
+                'a22': a22,
+                'a11_nan_details': a11_nan_details,
+                'a22_nan_details': a22_nan_details}
     return teams_attachment
