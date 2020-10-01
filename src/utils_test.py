@@ -998,6 +998,9 @@ class MyTestClass(unittest.TestCase):
     def test_is_almost_zero_when_exactly_zero(self):
         self.assertTrue(utils.is_almost_zero(x=0.0, num_of_exponents=10))
 
+    def test_is_almost_zero_when_should_be_computationally_zero(self):
+        self.assertTrue(utils.is_almost_zero(0.85 - 0.8 + 0.2 * (0.6 - 0.85)))
+
 
 if __name__ == '__main__':
     unittest.main()

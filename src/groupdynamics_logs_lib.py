@@ -14,6 +14,7 @@ import json
 import numpy as np
 import pandas as pd
 from collections import defaultdict
+from enum import Enum, unique
 from os.path import expanduser
 from typing import Dict
 from typing import List
@@ -21,6 +22,12 @@ from typing import Text
 from typing import Tuple
 
 import utils
+
+
+@unique
+class AttachmentType(Enum):
+    TO_INITIAL = 1
+    TO_PREVIOUS = 2
 
 
 class TeamLogsLoader(object):
@@ -386,12 +393,14 @@ def get_all_groups_info_in_one_dataframe(
     return data
 
 
-def compute_attachment_to_initial_opinion(
+def compute_attachment(
         xi: List[float],
         xj: List[float],
         wij: List[float],
         start_k: int = 0,
-        eps: float = 0.0) -> Tuple[List[float], List[Dict[Text, int]]]:
+        eps: float = 0.0,
+        to_opinion: AttachmentType = AttachmentType.TO_INITIAL
+        ) -> Tuple[List[float], List[Dict[Text, int]]]:
     """Computes the level of attachment to the initial opinion for person i.
 
     For person i at time k is computed as follows:
@@ -406,18 +415,21 @@ def compute_attachment_to_initial_opinion(
 
         start_k: Start value for k to be 0 or 1.
 
-        eps: The small amount to always add to both numerator and denominator.
+        eps: The small amount to always add to the denominator.
+
+        to_opinion: The type of attachment to either initial or previous.
 
     Returns:
-        Value (level) of attachment to the initial opinion for person i over
-        time, called a_{i, i}. Also note if want to avoid the possibility of 
-        division by zero, one get use a small epsilon larger than zero to add
-        to both numerator and denominator always.
+        Value (level) of attachment to the initial opinion or from previous for
+        person i over time, called a_{i, i}. Also note if you want to avoid the
+        possibility of division by zero, you should always use a small epsilon
+        larger than zero to add to the denominator.
 
     Raises:
         ValueError: If the length of opinions were not the same or number of 
         influence weights were not one less than the length of opinion vector.
-        Also if start_k was given anything but 0 or 1.
+        Also if start_k was given anything but 0 or 1. Also if the type of 
+        to_opinion was unkown.
     """
     if len(xi) != len(xj):
         raise ValueError(
@@ -432,107 +444,40 @@ def compute_attachment_to_initial_opinion(
     aii_nan_details = []
     aii = []
     for k in range(start_k, opinion_len - 1):
-        numerator = xi[k+1] - xi[0] + eps
-        denominator = xi[k] - xi[0] + wij[k] * (xj[k] - xi[k]) + eps
-        # Getting the details about how NaN is happening.
-        aii_nan_detail = {}
-        if numerator == 0 and utils.is_almost_zero(denominator):
-            aii_nan_detail['0/0'] = 1
-        if numerator != 0 and utils.is_almost_zero(denominator):
-            aii_nan_detail['n/0'] = 1
-        if utils.is_almost_zero(denominator) and xi[k] - xi[0] == 0:
-            aii_nan_detail['xi[k]-xi[0]==0'] = 1
-        if utils.is_almost_zero(denominator) and wij[k] == 0:
-            aii_nan_detail['wij[k]==0'] = 1
-        if utils.is_almost_zero(denominator) and xj[k] - xi[k] == 0:
-            aii_nan_detail['xj[k]-xi[k]==0'] = 1
-        if utils.is_almost_zero(denominator) and eps > 0:
-            print('Warning: choose a different epsilon.'
-                  ' There has been an denominator equals 0'
-                  ' with the current one which is {}.'.format(eps))
-        attachment = np.nan
-        if denominator != 0:
-            attachment = numerator / denominator
-        aii.append(attachment)
-        aii_nan_details.append(aii_nan_detail)
-    return aii, aii_nan_details
-
-
-def compute_attachment_to_opinion_before_discussion(
-        xi: List[float],
-        xj: List[float],
-        wij: List[float],
-        start_k: int = 0,
-        eps: float = 0.0) -> Tuple[List[float], List[Dict[Text, int]]]:
-    """Computes the attachment to the opinion before discussion for person i.
-
-    This is similar to attachment to the initial opinion but considers every
-    before discussion opinion as an initial opinion somehow.
-    For person i at time k is computed as follows:
-    a_{i, i}(k) = \frac{x_i(k+1) - x_i(k-1) + \epsilon}{x_i(k) - x_i(k-1) + w_{i, j}(k)\bigg(x_j(k) - x_i(k)\bigg) + \epsilon}
-
-    Args:
-        xi: List of opinions for person i over time (multiple rounds).
-
-        xj: List of opinions for person j over time (multiple rounds).
-
-        wij: List of influence from person i to person j.
-
-        start_k: Start value for k to be 0 or 1.
-
-        eps: The small amount to always add to both numerator and denominator.
-
-    Returns:
-        Value (level) of attachment to the the opinion before the discussion
-        for person i over time, called a_{i, i}. Also note if want to avoid
-        the possibility of division by zero, one get use a small epsilon larger
-        than zero to add to both numerator and denominator always.
-
-    Raises:
-        ValueError: If the length of opinions were not the same or number of 
-        influence weights were not one less than the length of opinion vector.
-        Also if start_k was given anything but 0 or 1.
-    """
-    if len(xi) != len(xj):
-        raise ValueError(
-            'Length of opinions do not match. xi: {}, xj: {}'.format(xi, xj))
-    if len(xi) != len(wij) + 1:
-        raise ValueError(
-            'Length of opinions and influences do not match. ')
-    if start_k != 0 and start_k != 1:
-        raise ValueError('Start k should be 0 or 1. It was given {}'.format(
-            start_k))
-    opinion_len = len(xi)
-    aii_nan_details = []
-    aii = []
-    for k in range(start_k, opinion_len - 1):
-        if k > 0:
-            numerator = xi[k+1] - xi[k-1] + eps
-            denominator = xi[k] - xi[k-1] + wij[k] * (xj[k] - xi[k]) + eps
+        if to_opinion == AttachmentType.TO_INITIAL:
+            xi_k_minus_x0_or_previous_str = 'xi[k]-xi[0]==0'
+            numerator = xi[k+1] - xi[0]
+            denominator = xi[k] - xi[0] + wij[k] * (xj[k] - xi[k]) + eps
+        elif to_opinion == AttachmentType.TO_PREVIOUS:
+            xi_k_minus_x0_or_previous_str = 'xi[k]-xi[k-1]==0'
+            if k > 0:
+                numerator = xi[k+1] - xi[k-1]
+                denominator = xi[k] - xi[k-1] + wij[k] * (xj[k] - xi[k]) + eps
+            else:
+                numerator = xi[k+1] - xi[k]
+                denominator = wij[k] * (xj[k] - xi[k]) + eps
         else:
-            numerator = xi[k+1] - xi[k] + eps
-            denominator = wij[k] * (xj[k] - xi[k]) + eps
+            ValueError('Type of attachment was unkown. It was {}'.format(
+                to_opinion))
         # Getting the details about how NaN is happening.
         aii_nan_detail = {}
         if utils.is_almost_zero(numerator) and utils.is_almost_zero(denominator):
             aii_nan_detail['0/0'] = 1
         if not utils.is_almost_zero(numerator) and utils.is_almost_zero(denominator):
             aii_nan_detail['n/0'] = 1
-        if utils.is_almost_zero(denominator) and k > 0 and utils.is_almost_zero(xi[k] - xi[k-1]):
-            aii_nan_detail['xi[k]-xi[k-1]==0'] = 1
+        if utils.is_almost_zero(denominator) and utils.is_almost_zero(xi[k] - xi[0]):
+            aii_nan_detail[xi_k_minus_x0_or_previous_str] = 1
         if utils.is_almost_zero(denominator) and utils.is_almost_zero(wij[k]):
             aii_nan_detail['wij[k]==0'] = 1
         if utils.is_almost_zero(denominator) and utils.is_almost_zero(xj[k] - xi[k]):
             aii_nan_detail['xj[k]-xi[k]==0'] = 1
-        # numerator = xi[k+1] - xi[k] + eps
-        # denominator = wij[k] * (xj[k] - xi[k]) + eps
         if utils.is_almost_zero(denominator) and eps > 0:
-            print(
-                'Warning: choose a different epsilon.'
-                ' There has been an denominator equals 0'
-                ' with the current one which is {}.'.format(eps))
+            print('Warning: choose a different epsilon.'
+                  ' There has been an denominator equals 0'
+                  ' with the current one which is {}.'.format(eps))
+        # attachment = 0  #  np.nan  << CHECK HERE >> DUE TO NOAH'S CODE IS SET 0.
         attachment = np.nan
-        if denominator != 0:
+        if not utils.is_almost_zero(denominator):
             attachment = numerator / denominator
         aii.append(attachment)
         aii_nan_details.append(aii_nan_detail)
@@ -563,30 +508,48 @@ def compute_all_teams_attachments(
         due to incorrect size of opinions, influence weights, or start k value.
     """
     teams_attachment = defaultdict(dict)
-    for team_index, team_id in enumerate(teams_data.keys()):
-        for issue_index, issue in enumerate(teams_data[team_id].keys()):
+    for _, team_id in enumerate(teams_data.keys()):
+        for _, issue in enumerate(teams_data[team_id].keys()):
             # Computing the level of attachment to the initial opinion (aii).
             this_team_issue = teams_data[team_id][issue]
             if use_attachment_to_initial_opinion:
-                attachment_function = compute_attachment_to_initial_opinion
+                to_opinion = AttachmentType.TO_INITIAL
             else:
-                attachment_function = (
-                    compute_attachment_to_opinion_before_discussion)
-            a11, a11_nan_details = attachment_function(
+                to_opinion = AttachmentType.TO_PREVIOUS
+            a11, a11_nan_details = compute_attachment(
                 xi=this_team_issue['x1'],
                 xj=this_team_issue['x2'],
                 wij=this_team_issue['w12'],
                 start_k=start_k,
-                eps=eps)
-            a22, a22_nan_details = attachment_function(
+                eps=eps,
+                to_opinion=to_opinion)
+            a22, a22_nan_details = compute_attachment(
                 xi=this_team_issue['x2'],
                 xj=this_team_issue['x1'],
                 wij=this_team_issue['w21'],
                 start_k=start_k,
-                eps=eps)
+                eps=eps,
+                to_opinion=to_opinion)
             teams_attachment[team_id][issue] = {
                 'a11': a11,
                 'a22': a22,
                 'a11_nan_details': a11_nan_details,
                 'a22_nan_details': a22_nan_details}
     return teams_attachment
+
+
+def predict_FJ(A, W, x, x0=None):
+    n, _ = W.shape
+    if x0 is None:
+        x0 = x
+    for _ in range(100):
+#         x = np.matmul(np.matmul(A, W), x) + np.matmul((np.eye(n) - A), x0)
+        x = A @ W @ x + (np.eye(n) - A) @ x0
+    return x
+
+
+def predict_Degroot(W, x):
+    for _ in range(100):
+#         x = np.matmul(W, x)
+        x = W @ x
+    return x
