@@ -185,11 +185,11 @@ class TestTeamLogsLoaderLoad(unittest.TestCase):
         ],
         ['with_duplicate_due_to_change_of_value',
             pd.DataFrame({
-                "sender":{"0":"pogs10.1","0":"pogs10.1","1":"pogs10.2","2":"pogs10.2"},
-                "question":{"0":"GD_influence_surgery1","0":"GD_influence_surgery1","1":"GD_influence_surgery1","2":"GD_influence_surgery1"},
-                "input":{"0":"self","0":"self","1":"self","2":"other"},
-                "value":{"0":"55","0":"5","1":"51","2":"49"},
-                "timestamp":{"0":"2020-01-16 14:15:11","0":"2020-01-16 14:15:12","1":"2020-01-16 14:15:20","2":"2020-01-16 14:15:22"}}),
+                "sender":{"0":"pogs10.1","1":"pogs10.2","2":"pogs10.2"},
+                "question":{"0":"GD_influence_surgery1","1":"GD_influence_surgery1","2":"GD_influence_surgery1"},
+                "input":{"0":"self","1":"self","2":"other"},
+                "value":{"0":"5","1":"51","2":"49"},
+                "timestamp":{"0":"2020-01-16 14:15:12","1":"2020-01-16 14:15:20","2":"2020-01-16 14:15:22"}}),
         [np.array([[0.05, 0.95],
                    [0.49, 0.51]])],
         ]])
@@ -284,7 +284,7 @@ class TestTeamLogsLoaderLoad(unittest.TestCase):
         np_testing.assert_array_almost_equal(expected_a11, computed_a11)
         utils.assert_dict_equals({'1': expected_details}, {'1': details})
 
-    def test_compute_attachment(self):
+    def test_compute_attachment_to_initial_opinion(self):
         x1 = [0.1, 0.2, 0.6, 0.4]
         x2 = [0.9, 0.4, 0.7, 0.5]
         w12 = [0.1, 0.0, 0.2]
@@ -358,7 +358,7 @@ class TestTeamLogsLoaderLoad(unittest.TestCase):
                 x1, x2, w12, start_k=-1,
                 to_opinion=gll.AttachmentType.TO_PREVIOUS)
 
-    def test_compute_attachment(self):
+    def test_compute_attachment_to_previous_opinion(self):
         x1 = [0.1, 0.2, 0.6, 0.4]
         x2 = [0.9, 0.4, 0.7, 0.5]
         w12 = [0.1, 0.0, 0.2]

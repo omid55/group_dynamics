@@ -117,7 +117,7 @@ class TeamLogsLoader(object):
             glob.glob(expanduser(task_orders_filepath))[0])
 
         completed_taskid2taskname = {}
-        for index, row in task_orders.iterrows():
+        for _, row in task_orders.iterrows():
             completed_taskid2taskname[row.Id] = TeamLogsLoader.taskid2taskname[
                 row.TaskId]
 
@@ -126,7 +126,7 @@ class TeamLogsLoader(object):
         influences_dt = []
         frustrations_dt = []
 
-        for index, row in logs.iterrows():
+        for _, row in logs.iterrows():
             content_file_id = row.EventContent[9:]
             question_name = completed_taskid2taskname[row.CompletedTaskId]
             sender = row.Sender

@@ -16,7 +16,7 @@ import dill
 import networkx as nx
 import seaborn as sns
 import shelve
-# import enforce
+import os
 from numpy.linalg import norm
 from scipy.stats import pearsonr
 from scipy.spatial.distance import cosine
@@ -25,6 +25,7 @@ from typing import List
 from typing import Tuple
 from typing import Text
 from statsmodels.tsa.stattools import grangercausalitytests
+# import enforce
 
 
 # @enforce.runtime_validation
@@ -738,7 +739,7 @@ def matrix_estimation_error(
     """
     true_matrix = np.array(true_matrix)
     pred_matrix = np.array(pred_matrix)
-    n, m = true_matrix.shape
+    n, _ = true_matrix.shape
     if true_matrix.shape != pred_matrix.shape:
         raise ValueError('The shape of two matrices do not match.'
                          ' true: {} and predicted: {}.'.format(
